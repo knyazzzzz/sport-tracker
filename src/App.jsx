@@ -2,21 +2,20 @@ import { useState, useEffect, useRef } from "react";
 
 const COLORS = ["#10b981","#f59e0b","#6366f1","#ef4444","#3b82f6","#ec4899","#8b5cf6","#14b8a6"];
 const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const ACCENT = "#10b981";
 const ACCENT2 = "#34d399";
 
 function toKey(date) { return date.toISOString().slice(0,10); }
 function today() { return toKey(new Date()); }
 
-async function load(key) {
-  try { const r = await window.storage.get(key); return r ? JSON.parse(r.value) : null; } catch { return null; }
+function lsGet(key, fallback) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
 }
-async function save(key, val) {
-  try { await window.storage.set(key, JSON.stringify(val)); } catch {}
+function lsSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
 }
 
-function drawShareCard(canvas, activities, log, streaks, todayKey) {
+function drawShareCard(canvas, activities, log, streaks) {
   const ctx = canvas.getContext("2d");
   const W = canvas.width, H = canvas.height;
   const bg = ctx.createLinearGradient(0,0,W,H);
@@ -65,8 +64,7 @@ function drawShareCard(canvas, activities, log, streaks, todayKey) {
     const dd = new Date(); dd.setDate(dd.getDate()-(27-w));
     const k = toKey(dd);
     const done = log[k] ? Object.values(log[k]).filter(Boolean).length : 0;
-    const max = Math.max(activities.length,1);
-    const intensity = done/max;
+    const max = Math.max(activities.length,1), intensity = done/max;
     ctx.fillStyle = done===0 ? "rgba(255,255,255,0.06)" : `rgba(16,185,129,${0.2+intensity*0.8})`;
     const cx2 = 36+(w%7)*42, cy2 = hmY+12+Math.floor(w/7)*18;
     ctx.beginPath(); ctx.roundRect(cx2,cy2,34,12,4); ctx.fill();
@@ -76,128 +74,112 @@ function drawShareCard(canvas, activities, log, streaks, todayKey) {
 
 export default function App() {
   const [tab, setTab] = useState("checkin");
-  const [activities, setActivities] = useState([]);
-  const [log, setLog] = useState({});
+  const [activities, setActivities] = useState(() => lsGet("st_activities", []));
+  const [log, setLog] = useState(() => lsGet("st_log", {}));
   const [newName, setNewName] = useState("");
   const [shareReady, setShareReady] = useState(false);
-  const [loaded, setLoaded] = useState(false);
   const canvasRef = useRef();
 
-  useEffect(()=>{
-    (async()=>{
-      const a = await load("activities");
-      const l = await load("log");
-      if(a) setActivities(a);
-      if(l) setLog(l);
-      setLoaded(true);
-    })();
-  },[]);
-
-  useEffect(()=>{ if(loaded) save("activities",activities); },[activities,loaded]);
-  useEffect(()=>{ if(loaded) save("log",log); },[log,loaded]);
+  useEffect(() => lsSet("st_activities", activities), [activities]);
+  useEffect(() => lsSet("st_log", log), [log]);
 
   const todayKey = today();
-  const todayLog = log[todayKey]||{};
+  const todayLog = log[todayKey] || {};
 
   function toggle(id) {
-    setLog(prev=>({ ...prev, [todayKey]: { ...prev[todayKey], [id]: !prev[todayKey]?.[id] } }));
+    setLog(prev => ({ ...prev, [todayKey]: { ...prev[todayKey], [id]: !prev[todayKey]?.[id] } }));
   }
   function addActivity() {
     const name = newName.trim();
-    if(!name) return;
+    if (!name) return;
     const id = Date.now().toString();
     const color = COLORS[activities.length % COLORS.length];
-    setActivities(prev=>[...prev,{id,name,color}]);
+    setActivities(prev => [...prev, {id, name, color}]);
     setNewName("");
   }
-  function removeActivity(id) { setActivities(prev=>prev.filter(a=>a.id!==id)); }
+  function removeActivity(id) { setActivities(prev => prev.filter(a => a.id !== id)); }
 
   function getStreaks() {
     const res = {};
-    activities.forEach(a=>{
-      let cur=0, best=0;
-      if(!log[todayKey]?.[a.id]) {
-        let d2=new Date(); d2.setDate(d2.getDate()-1);
-        for(let i=0;i<365;i++) {
-          const k=toKey(d2);
-          if(log[k]?.[a.id]) { cur++; best=Math.max(best,cur); }
+    activities.forEach(a => {
+      let cur = 0, best = 0;
+      if (!log[todayKey]?.[a.id]) {
+        let d2 = new Date(); d2.setDate(d2.getDate()-1);
+        for (let i=0;i<365;i++) {
+          const k = toKey(d2);
+          if (log[k]?.[a.id]) { cur++; best = Math.max(best,cur); }
           else break;
           d2.setDate(d2.getDate()-1);
         }
       } else {
-        let d=new Date();
-        for(let i=0;i<365;i++) {
-          const k=toKey(d);
-          if(log[k]?.[a.id]) { cur++; best=Math.max(best,cur); }
-          else if(i>0) break;
+        let d = new Date();
+        for (let i=0;i<365;i++) {
+          const k = toKey(d);
+          if (log[k]?.[a.id]) { cur++; best = Math.max(best,cur); }
+          else if (i>0) break;
           d.setDate(d.getDate()-1);
         }
       }
-      res[a.id]={current:cur,best};
+      res[a.id] = {current:cur, best};
     });
     return res;
   }
   const streaks = getStreaks();
 
-  let overallStreak=0;
-  { let d=new Date();
-    for(let i=0;i<365;i++){
-      const k=toKey(d);
-      if(log[k]&&Object.values(log[k]).some(Boolean)) overallStreak++;
+  let overallStreak = 0;
+  { let d = new Date();
+    for (let i=0;i<365;i++) {
+      const k = toKey(d);
+      if (log[k] && Object.values(log[k]).some(Boolean)) overallStreak++;
       else break;
       d.setDate(d.getDate()-1);
     }
   }
-  const totalActive = Object.keys(log).filter(k=>Object.values(log[k]).some(Boolean)).length;
-  const last7 = Array.from({length:7},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()-i); return toKey(d); });
-  const weeklyDone = last7.filter(k=>log[k]&&Object.values(log[k]).some(Boolean)).length;
+  const totalActive = Object.keys(log).filter(k => Object.values(log[k]).some(Boolean)).length;
+  const last7 = Array.from({length:7}, (_,i) => { const d=new Date(); d.setDate(d.getDate()-i); return toKey(d); });
+  const weeklyDone = last7.filter(k => log[k] && Object.values(log[k]).some(Boolean)).length;
 
   function getHeatmap() {
-    const cells=[], start=new Date(); start.setDate(start.getDate()-111);
-    for(let i=0;i<112;i++){
-      const d=new Date(start); d.setDate(start.getDate()+i);
-      const k=toKey(d);
-      cells.push({k,d:new Date(d),done:log[k]?Object.values(log[k]).filter(Boolean).length:0});
+    const cells = [], start = new Date(); start.setDate(start.getDate()-111);
+    for (let i=0;i<112;i++) {
+      const d = new Date(start); d.setDate(start.getDate()+i);
+      const k = toKey(d);
+      cells.push({k, d: new Date(d), done: log[k] ? Object.values(log[k]).filter(Boolean).length : 0});
     }
     return cells;
   }
-  const heatmap=getHeatmap();
+  const heatmap = getHeatmap();
 
-  function getWeekBars() {
-    return Array.from({length:7},(_,i)=>{
-      const d=new Date(); d.setDate(d.getDate()-6+i);
-      const k=toKey(d);
-      return {label:DAYS[d.getDay()],done:log[k]?Object.values(log[k]).filter(Boolean).length:0,k};
-    });
-  }
-  const bars=getWeekBars();
-  const maxBar=Math.max(...bars.map(b=>b.done),1);
+  const bars = Array.from({length:7}, (_,i) => {
+    const d = new Date(); d.setDate(d.getDate()-6+i);
+    const k = toKey(d);
+    return {label: DAYS[d.getDay()], done: log[k] ? Object.values(log[k]).filter(Boolean).length : 0, k};
+  });
+  const maxBar = Math.max(...bars.map(b => b.done), 1);
 
   function renderShare() {
-    const canvas=canvasRef.current;
-    canvas.width=492; canvas.height=600;
-    drawShareCard(canvas,activities,log,streaks,todayKey);
+    const canvas = canvasRef.current;
+    canvas.width = 492; canvas.height = 600;
+    drawShareCard(canvas, activities, log, streaks);
     setShareReady(true);
   }
   function downloadPNG() {
-    const a=document.createElement("a"); a.download="sport-stats.png"; a.href=canvasRef.current.toDataURL("image/png"); a.click();
+    const a = document.createElement("a"); a.download = "sport-stats.png"; a.href = canvasRef.current.toDataURL("image/png"); a.click();
   }
   function shareTwitter() {
-    const t=encodeURIComponent(`🏋️ My sport stats: ${overallStreak} day streak, ${totalActive} active days, ${weeklyDone}/7 this week! 💪 #SportTracker`);
-    window.open(`https://twitter.com/intent/tweet?text=${t}`,"_blank");
+    const t = encodeURIComponent(`🏋️ My sport stats: ${overallStreak} day streak, ${totalActive} active days, ${weeklyDone}/7 this week! 💪 #SportTracker`);
+    window.open(`https://twitter.com/intent/tweet?text=${t}`, "_blank");
   }
   function shareWhatsApp() {
-    const t=encodeURIComponent(`🏋️ My sport stats:\n🔥 ${overallStreak} day streak\n📅 ${totalActive} total active days\n📊 ${weeklyDone}/7 this week 💪`);
-    window.open(`https://wa.me/?text=${t}`,"_blank");
+    const t = encodeURIComponent(`🏋️ My sport stats:\n🔥 ${overallStreak} day streak\n📅 ${totalActive} total active days\n📊 ${weeklyDone}/7 this week 💪`);
+    window.open(`https://wa.me/?text=${t}`, "_blank");
   }
-  async function copyLink() {
-    canvasRef.current.toBlob(async blob=>{
-      try { await navigator.clipboard.write([new ClipboardItem({"image/png":blob})]); alert("Image copied!"); }
+  async function copyImg() {
+    canvasRef.current.toBlob(async blob => {
+      try { await navigator.clipboard.write([new ClipboardItem({"image/png": blob})]); alert("Image copied!"); }
       catch { alert("Copy not supported — please download instead."); }
     });
   }
-
-  if(!loaded) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#0a1a12",color:"#fff"}}>Loading...</div>;
 
   const cardStyle = {background:"rgba(255,255,255,0.04)",border:"1px solid rgba(16,185,129,0.12)",borderRadius:16,padding:20};
 
@@ -239,8 +221,8 @@ export default function App() {
               {activities.length===0 && <p style={{color:"#3a5a48",fontSize:14}}>No activities yet. Add some in the Activities tab!</p>}
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
                 {activities.map(a=>{
-                  const done=!!todayLog[a.id];
-                  const s=streaks[a.id]||{current:0};
+                  const done = !!todayLog[a.id];
+                  const s = streaks[a.id]||{current:0};
                   return (
                     <div key={a.id} onClick={()=>toggle(a.id)} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",borderRadius:12,cursor:"pointer",
                       background: done ? a.color+"22" : "rgba(255,255,255,0.03)",
@@ -278,13 +260,12 @@ export default function App() {
                 ))}
               </div>
             </div>
-
             <div style={cardStyle}>
               <h3 style={{margin:"0 0 14px",fontSize:15,color:"#668a76"}}>Activity Streaks</h3>
               {activities.length===0 && <p style={{color:"#3a5a48",fontSize:14}}>No activities yet.</p>}
               {activities.map(a=>{
-                const s=streaks[a.id]||{current:0,best:0};
-                const pct=s.best>0?Math.round(s.current/s.best*100):0;
+                const s = streaks[a.id]||{current:0,best:0};
+                const pct = s.best>0 ? Math.round(s.current/s.best*100) : 0;
                 return (
                   <div key={a.id} style={{marginBottom:14}}>
                     <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
@@ -298,7 +279,6 @@ export default function App() {
                 );
               })}
             </div>
-
             <div style={cardStyle}>
               <h3 style={{margin:"0 0 12px",fontSize:15,color:"#668a76"}}>Activity Heatmap (16 weeks)</h3>
               <div style={{display:"grid",gridTemplateColumns:"repeat(16,1fr)",gap:3}}>
@@ -310,7 +290,7 @@ export default function App() {
                     return (
                       <div key={cell.k} title={`${cell.k}: ${cell.done} activities`} style={{
                         aspectRatio:"1",borderRadius:3,
-                        background: cell.done===0 ? "rgba(255,255,255,0.06)" : `rgba(16,185,129,${alpha})`,
+                        background: cell.done===0?"rgba(255,255,255,0.06)":`rgba(16,185,129,${alpha})`,
                         border: cell.k===todayKey?`1px solid ${ACCENT}`:"none"
                       }}/>
                     );
@@ -335,7 +315,7 @@ export default function App() {
               <input value={newName} onChange={e=>setNewName(e.target.value)}
                 onKeyDown={e=>e.key==="Enter"&&addActivity()}
                 placeholder="New activity name..."
-                style={{flex:1,padding:"10px 14px",borderRadius:10,background:"rgba(255,255,255,0.06)",border:`1px solid rgba(16,185,129,0.2)`,color:"#fff",fontSize:14,outline:"none"}}/>
+                style={{flex:1,padding:"10px 14px",borderRadius:10,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(16,185,129,0.2)",color:"#fff",fontSize:14,outline:"none"}}/>
               <button onClick={addActivity} style={{padding:"10px 20px",borderRadius:10,background:ACCENT,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:14}}>Add</button>
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -367,7 +347,7 @@ export default function App() {
                 <img src={canvasRef.current.toDataURL()} alt="Stats card" style={{width:"100%",borderRadius:12,marginBottom:16}}/>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
                   <button onClick={downloadPNG} style={{padding:"11px",borderRadius:10,background:ACCENT,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>⬇️ Download PNG</button>
-                  <button onClick={copyLink} style={{padding:"11px",borderRadius:10,background:"rgba(255,255,255,0.08)",border:"1px solid rgba(16,185,129,0.2)",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>📋 Copy Image</button>
+                  <button onClick={copyImg} style={{padding:"11px",borderRadius:10,background:"rgba(255,255,255,0.08)",border:"1px solid rgba(16,185,129,0.2)",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>📋 Copy Image</button>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                   <button onClick={shareTwitter} style={{padding:"11px",borderRadius:10,background:"#1da1f2",border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>𝕏 Share on Twitter</button>
