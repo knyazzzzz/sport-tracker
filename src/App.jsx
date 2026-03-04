@@ -17,7 +17,10 @@ function lsSet(key, val) {
 
 function drawShareCard(canvas, activities, log, streaks) {
   const ctx = canvas.getContext("2d");
-  const W = canvas.width, H = canvas.height;
+  const W = canvas.width;
+  const actCount = Math.min(activities.length, 10);
+  const H = 340 + actCount * 38 + 130;
+  canvas.height = H;
   const bg = ctx.createLinearGradient(0,0,W,H);
   bg.addColorStop(0,"#0a1a12"); bg.addColorStop(1,"#0d2318");
   ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
@@ -50,7 +53,7 @@ function drawShareCard(canvas, activities, log, streaks) {
     ctx.fillStyle="#fff"; ctx.font="bold 28px system-ui"; ctx.fillText(b.val, x+14, y+54);
   });
   ctx.fillStyle="#fff"; ctx.font="bold 16px system-ui"; ctx.fillText("Activity Streaks", 36, 330);
-  activities.slice(0,6).forEach((a,i)=>{
+  activities.slice(0,10).forEach((a,i)=>{
     const y = 348+i*38;
     ctx.fillStyle = a.color+"33"; ctx.beginPath(); ctx.roundRect(36,y,W-72,30,8); ctx.fill();
     const s = streaks[a.id]||{current:0};
@@ -58,7 +61,7 @@ function drawShareCard(canvas, activities, log, streaks) {
     ctx.fillStyle="#fff"; ctx.font="13px system-ui"; ctx.fillText(a.name, 72, y+19);
     ctx.fillStyle=a.color; ctx.font="bold 14px system-ui"; ctx.fillText("🔥 "+s.current+"d streak", W-130, y+19);
   });
-  const hmY = H-110;
+  const hmY = 330 + actCount * 38 + 12;
   ctx.fillStyle="#fff"; ctx.font="bold 16px system-ui"; ctx.fillText("Last 4 Weeks", 36, hmY);
   for(let w=0;w<28;w++) {
     const dd = new Date(); dd.setDate(dd.getDate()-(27-w));
@@ -69,7 +72,7 @@ function drawShareCard(canvas, activities, log, streaks) {
     const cx2 = 36+(w%7)*42, cy2 = hmY+12+Math.floor(w/7)*18;
     ctx.beginPath(); ctx.roundRect(cx2,cy2,34,12,4); ctx.fill();
   }
-  ctx.fillStyle="#444"; ctx.font="12px system-ui"; ctx.fillText("Made with Sport Tracker 💪", 36, H-18);
+  ctx.fillStyle="#444"; ctx.font="12px system-ui"; ctx.fillText("Made with Sport Tracker 💪", 36, hmY+100);
 }
 
 export default function App() {
