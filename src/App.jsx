@@ -18,6 +18,21 @@ function daysAgo(n) { const d=new Date(); d.setDate(d.getDate()-n); return d; }
 function lsGet(k,fb) { try{ const v=localStorage.getItem(k); return v?JSON.parse(v):fb; }catch{ return fb; } }
 function lsSet(k,v) { try{ localStorage.setItem(k,JSON.stringify(v)); }catch{} }
 
+// Migrate old log format {actId: true} → {actId: {done: true}}
+function migrateLog(log) {
+  const migrated = {};
+  Object.keys(log).forEach(dateKey => {
+    migrated[dateKey] = {};
+    Object.keys(log[dateKey]).forEach(actId => {
+      const val = log[dateKey][actId];
+      migrated[dateKey][actId] = (typeof val === "boolean" || typeof val === "undefined")
+        ? { done: !!val }
+        : val;
+    });
+  });
+  return migrated;
+}
+
 // ── Share card ────────────────────────────────────────────────────────────────
 function drawShareCard(canvas, activities, log, streaks, pal) {
   const ctx=canvas.getContext("2d"), W=canvas.width;
@@ -191,7 +206,7 @@ function EditModal({act, onSave, onClose, pal}) {
 export default function App() {
   const [tab,setTab]=useState("checkin");
   const [activities,setActivities]=useState(()=>lsGet("st_activities",[]));
-  const [log,setLog]=useState(()=>lsGet("st_log",{}));
+  const [log,setLog]=useState(()=>migrateLog(lsGet("st_log",{})));
   const [palKey,setPalKey]=useState(()=>lsGet("st_palette","green"));
   const [onboarded,setOnboarded]=useState(()=>lsGet("st_onboarded",false));
   const [newName,setNewName]=useState("");
