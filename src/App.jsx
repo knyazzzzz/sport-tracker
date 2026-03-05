@@ -356,6 +356,52 @@ function migrateLog(log){const m={};Object.keys(log).forEach(dk=>{m[dk]={};Objec
 function detectLang(){const l=(navigator.language||"en").slice(0,2).toLowerCase();return TRANSLATIONS[l]?l:"en";}
 function daysUntilNextMonth(){const n=new Date(),nm=new Date(n.getFullYear(),n.getMonth()+1,1);return Math.ceil((nm-n)/86400000);}
 
+// ── 🔊 Sound: subtle tick using Web Audio API ─────────────────────────────────
+function playCheckSound(isDone) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (isDone) {
+      // Pleasant rising "tick" when marking done
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(520, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.06);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.15);
+    } else {
+      // Soft falling "untick"
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(600, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(380, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.07, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.13);
+    }
+  } catch(e) {}
+}
+
+// ── groupByCategory helper ────────────────────────────────────────────────────
+function groupByCategory(activities) {
+  const groups = {};
+  CATEGORIES.forEach(c => { groups[c] = []; });
+  activities.forEach(a => {
+    const cat = a.category || "other";
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(a);
+  });
+  return groups;
+}
+
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 function Skeleton({pal}){
   const sh={background:`linear-gradient(90deg,${pal.card} 25%,${pal.border} 50%,${pal.card} 75%)`,backgroundSize:"200% 100%",animation:"shimmer 1.5s infinite"};
@@ -441,32 +487,44 @@ function DayModal({dateKey,activities,log,onClose,onToggle,onNote,onRestDay,pal,
   const isRest=entry.__rest__?.done;
   const hasSport=activities.some(a=>a.category==="sport");
   const tx=pal.text||"#fff";
+  const groups=groupByCategory(activities);
   return(
     <SlideModal onClose={onClose} pal={pal} fullscreen>
       {close=>(
         <div style={{color:tx}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}>
-            <div>
-              <div style={{fontWeight:800,fontSize:16}}>{d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</div>
+            <div style={{flex:1,minWidth:0,paddingRight:10}}>
+              <div style={{fontWeight:800,fontSize:15,wordBreak:"break-word"}}>{d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</div>
               <div style={{fontSize:12,color:isToday?pal.a1:isYesterday?"#f59e0b":pal.muted,fontWeight:600,marginTop:2}}>{isToday?t.today:isYesterday?t.yesterdayLog:t.viewOnly}</div>
             </div>
-            <button onClick={close} style={{background:"transparent",border:"none",color:pal.sub,fontSize:22,cursor:"pointer"}}>✕</button>
+            <button onClick={close} style={{background:"transparent",border:"none",color:pal.sub,fontSize:22,cursor:"pointer",flexShrink:0}}>✕</button>
           </div>
           {canEdit&&(hasSport
             ?<button onClick={()=>onRestDay(dateKey)} style={{width:"100%",marginBottom:12,padding:"10px",borderRadius:12,background:isRest?pal.a1+"33":"rgba(255,255,255,0.04)",border:`1px solid ${isRest?pal.a1:pal.border}`,color:isRest?pal.a1:pal.sub,fontWeight:700,cursor:"pointer",fontSize:13}}>{isRest?t.restProtected:t.markRestDay}</button>
             :<div style={{marginBottom:12,padding:"9px 14px",borderRadius:12,background:"rgba(255,255,255,0.03)",border:`1px solid ${pal.border}`,fontSize:12,color:pal.muted,textAlign:"center"}}>{t.restDayNotApplicable}</div>
           )}
-          {activities.map(a=>{
-            const e=entry[a.id]||{};
+          {CATEGORIES.map(cat=>{
+            const catActivities=groups[cat]||[];
+            if(catActivities.length===0)return null;
             return(
-              <div key={a.id} style={{marginBottom:12}}>
-                <div onClick={()=>canEdit&&onToggle(a.id,dateKey)} style={{display:"flex",alignItems:"center",gap:11,padding:"11px 13px",borderRadius:12,cursor:canEdit?"pointer":"default",background:e.done?a.color+"22":"rgba(255,255,255,0.03)",border:`1px solid ${e.done?a.color+"55":pal.border}`,marginBottom:5}}>
-                  <span style={{fontSize:16}}>{a.icon||"⭕"}</span>
-                  <div style={{width:20,height:20,borderRadius:"50%",background:e.done?a.color:"rgba(255,255,255,0.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,flexShrink:0}}>{e.done?"✓":""}</div>
-                  <span style={{flex:1,fontWeight:600,fontSize:14,color:e.done?a.color:tx}}>{a.name}</span>
-                  <span style={{fontSize:10,color:pal.muted,background:"rgba(255,255,255,0.06)",padding:"2px 7px",borderRadius:8}}>{a.category==="sport"?"🏃":a.category==="mind"?"🧠":a.category==="health"?"💧":"⭐"}</span>
+              <div key={cat}>
+                <div style={{fontSize:11,fontWeight:700,color:pal.muted,textTransform:"uppercase",letterSpacing:"0.06em",margin:"10px 0 7px",display:"flex",alignItems:"center",gap:5}}>
+                  <span>{CAT_ICONS[cat]}</span>
+                  <span>{({sport:t.catSport,mind:t.catMind,health:t.catHealth,other:t.catOther})[cat]}</span>
                 </div>
-                {canEdit&&<textarea value={e.note||""} onChange={ev=>onNote(dateKey,a.id,ev.target.value)} placeholder={t.addNote} style={{width:"100%",padding:"7px 11px",borderRadius:10,background:"rgba(255,255,255,0.04)",border:`1px solid ${pal.border}`,color:tx,fontSize:12,resize:"vertical",minHeight:36,outline:"none",boxSizing:"border-box",fontFamily:"system-ui"}}/>}
+                {catActivities.map(a=>{
+                  const e=entry[a.id]||{};
+                  return(
+                    <div key={a.id} style={{marginBottom:10}}>
+                      <div onClick={()=>canEdit&&onToggle(a.id,dateKey)} style={{display:"flex",alignItems:"center",gap:11,padding:"11px 13px",borderRadius:12,cursor:canEdit?"pointer":"default",background:e.done?a.color+"22":"rgba(255,255,255,0.03)",border:`1px solid ${e.done?a.color+"55":pal.border}`,marginBottom:5}}>
+                        <span style={{fontSize:16,flexShrink:0}}>{a.icon||"⭕"}</span>
+                        <div style={{width:20,height:20,borderRadius:"50%",background:e.done?a.color:"rgba(255,255,255,0.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,flexShrink:0}}>{e.done?"✓":""}</div>
+                        <span style={{flex:1,fontWeight:600,fontSize:14,color:e.done?a.color:tx,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.name}</span>
+                      </div>
+                      {canEdit&&<textarea value={e.note||""} onChange={ev=>onNote(dateKey,a.id,ev.target.value)} placeholder={t.addNote} style={{width:"100%",padding:"7px 11px",borderRadius:10,background:"rgba(255,255,255,0.04)",border:`1px solid ${pal.border}`,color:tx,fontSize:12,resize:"vertical",minHeight:36,outline:"none",boxSizing:"border-box",fontFamily:"system-ui"}}/>}
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
@@ -500,9 +558,9 @@ function EditModal({act,onSave,onClose,pal,t}){
             <label style={{fontSize:11,color:pal.sub,display:"block",marginBottom:6}}>{t.category}</label>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
               {CATEGORIES.map(c=>(
-                <button key={c} onClick={()=>setCat(c)} style={{padding:"9px 10px",borderRadius:11,border:`1px solid ${cat===c?pal.a1:pal.border}`,background:cat===c?pal.a1+"22":"transparent",color:cat===c?pal.a1:pal.sub,cursor:"pointer",fontWeight:600,fontSize:13,textAlign:"left",display:"flex",alignItems:"center",gap:7}}>
-                  <span style={{fontSize:16}}>{catEmojis[c]}</span>
-                  <div><div style={{fontSize:12,fontWeight:700}}>{catLabels[c]}</div><div style={{fontSize:10,opacity:0.7}}>{t[`cat${c.charAt(0).toUpperCase()+c.slice(1)}Desc`]}</div></div>
+                <button key={c} onClick={()=>setCat(c)} style={{padding:"9px 10px",borderRadius:11,border:`1px solid ${cat===c?pal.a1:pal.border}`,background:cat===c?pal.a1+"22":"transparent",color:cat===c?pal.a1:pal.sub,cursor:"pointer",fontWeight:600,fontSize:12,textAlign:"left",display:"flex",alignItems:"center",gap:7}}>
+                  <span style={{fontSize:16,flexShrink:0}}>{catEmojis[c]}</span>
+                  <div style={{minWidth:0}}><div style={{fontSize:12,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{catLabels[c]}</div><div style={{fontSize:10,opacity:0.7,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t[`cat${c.charAt(0).toUpperCase()+c.slice(1)}Desc`]}</div></div>
                 </button>
               ))}
             </div>
@@ -569,7 +627,6 @@ function SettingsPanel({palKey,setPalKey,lang,setLang,notifPerm,onEnableNotif,pa
   const palNames={green:"🌲 Forest",indigo:"🌌 Indigo",rose:"🌹 Rose",amber:"🌅 Amber",light:"☀️ Light"};
   return(
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
-      {/* Theme */}
       <div style={{background:pal.card,border:`1px solid ${pal.border}`,borderRadius:16,padding:20}}>
         <div style={{fontWeight:700,fontSize:14,color:tx,marginBottom:14}}>🎨 {t.theme}</div>
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
@@ -582,8 +639,6 @@ function SettingsPanel({palKey,setPalKey,lang,setLang,notifPerm,onEnableNotif,pa
           ))}
         </div>
       </div>
-
-      {/* Language */}
       <div style={{background:pal.card,border:`1px solid ${pal.border}`,borderRadius:16,padding:20}}>
         <div style={{fontWeight:700,fontSize:14,color:tx,marginBottom:14}}>🌍 {t.language}</div>
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
@@ -596,8 +651,6 @@ function SettingsPanel({palKey,setPalKey,lang,setLang,notifPerm,onEnableNotif,pa
           ))}
         </div>
       </div>
-
-      {/* Notifications */}
       <div style={{background:pal.card,border:`1px solid ${pal.border}`,borderRadius:16,padding:20}}>
         <div style={{fontWeight:700,fontSize:14,color:tx,marginBottom:5}}>{t.streakReminders}</div>
         <div style={{fontSize:13,color:pal.muted,marginBottom:12}}>{t.notifDesc}</div>
@@ -655,6 +708,23 @@ function drawShareCard(canvas,activities,log,streaks,pal,t){
   ctx.fillStyle="#555";ctx.font="12px system-ui";ctx.fillText(t.madeWith,36,H-10);
 }
 
+// ── Category Section Header ───────────────────────────────────────────────────
+function CatHeader({ cat, label, pal, count }) {
+  if (count === 0) return null;
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 7,
+      margin: "14px 0 7px",
+      paddingBottom: 6,
+      borderBottom: `1px solid ${pal.border}`,
+    }}>
+      <span style={{ fontSize: 14 }}>{CAT_ICONS[cat]}</span>
+      <span style={{ fontSize: 12, fontWeight: 700, color: pal.sub, textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</span>
+      <span style={{ fontSize: 11, color: pal.muted, marginLeft: "auto", background: "rgba(255,255,255,0.06)", padding: "1px 7px", borderRadius: 8 }}>{count}</span>
+    </div>
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App(){
   const [loaded,setLoaded]=useState(false);
@@ -695,7 +765,6 @@ export default function App(){
   useEffect(()=>{if(loaded){lsSet("st_activities",activities);lsSet("st_log",log);lsSet("st_palette",palKey);lsSet("st_freezes",freezesUsed);lsSet("st_lang",lang);}},[activities,log,palKey,freezesUsed,lang,loaded]);
 
   const pal=PALETTES[palKey]||PALETTES.green,tx=pal.text||"#fff",t=TRANSLATIONS[lang]||TRANSLATIONS.en,isRTL=lang==="ar";
-  const todayKey=today(),yesterdayKey=yesterday();
   const catLabel=(c)=>({sport:t.catSport,mind:t.catMind,health:t.catHealth,other:t.catOther}[c]||c);
   const catEmoji=(c)=>({sport:"🏃",mind:"🧠",health:"💧",other:"⭐"}[c]||"⭐");
 
@@ -712,6 +781,7 @@ export default function App(){
     });
     return res;
   }
+  const todayKey=today(),yesterdayKey=yesterday();
   const streaks=getStreaks();
 
   useEffect(()=>{
@@ -738,7 +808,13 @@ export default function App(){
   const todayLog=log[todayKey]||{},isRestToday=todayLog.__rest__?.done;
   const hasSportToday=activities.some(a=>a.category==="sport");
 
-  function toggle(id,dateKey=todayKey){setPulseId(id);setTimeout(()=>setPulseId(null),600);haptic("medium");setLog(prev=>({...prev,[dateKey]:{...prev[dateKey],[id]:{...prev[dateKey]?.[id],done:!prev[dateKey]?.[id]?.done}}}));}
+  function toggle(id,dateKey=todayKey){
+    const newDone=!log[dateKey]?.[id]?.done;
+    playCheckSound(newDone);
+    setPulseId(id);setTimeout(()=>setPulseId(null),600);
+    haptic("medium");
+    setLog(prev=>({...prev,[dateKey]:{...prev[dateKey],[id]:{...prev[dateKey]?.[id],done:newDone}}}));
+  }
   function setNote(dk,ai,note){setLog(prev=>({...prev,[dk]:{...prev[dk],[ai]:{...prev[dk]?.[ai],note}}}));}
   function toggleRest(dateKey){haptic();setLog(prev=>({...prev,[dateKey]:{...prev[dateKey],__rest__:{done:!prev[dateKey]?.__rest__?.done}}}));}
   function addActivity(){const name=newName.trim();if(!name)return;const id=Date.now().toString(),color=ACT_COLORS[activities.length%ACT_COLORS.length],icon=ACT_ICONS[activities.length%ACT_ICONS.length];setActivities(prev=>[...prev,{id,name,color,icon,category:newCat,goalType:"none",goalVal:3}]);setNewName("");haptic();}
@@ -760,11 +836,29 @@ export default function App(){
   const cardStyle={background:pal.card,border:`1px solid ${pal.border}`,borderRadius:16,padding:18};
   const tabs=[{id:"checkin",label:t.checkin,icon:"✅"},{id:"stats",label:t.stats,icon:"📊"},{id:"habits",label:t.habits,icon:"⛓️"},{id:"share",label:t.share,icon:"📤"},{id:"settings",label:t.settings,icon:"⚙️"}];
 
+  // grouped activities for rendering
+  const groups = groupByCategory(activities);
+
   if(!loaded)return <Skeleton pal={PALETTES[lsGet("st_palette","green")]||PALETTES.green}/>;
 
   return(
     <div style={{minHeight:"100vh",background:pal.bg0,color:tx,fontFamily:"system-ui,sans-serif",paddingBottom:40,direction:isRTL?"rtl":"ltr"}}>
-      <style>{`* { -webkit-tap-highlight-color: transparent; }`}</style>
+      <style>{`
+        *, *::before, *::after { box-sizing: border-box; }
+        * { -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; overflow-x: hidden; }
+        .cl-habit-row { display: flex; align-items: center; gap: 11px; }
+        .cl-habit-name { font-weight: 700; font-size: clamp(12px, 3.5vw, 14px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+        .cl-habit-meta { font-size: clamp(10px, 2.5vw, 11px); color: inherit; margin-top: 1px; display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+        .cl-stat-val { font-size: clamp(16px, 5vw, 19px); font-weight: 800; }
+        .cl-stat-label { font-size: clamp(9px, 2.3vw, 10px); margin-top: 1px; }
+        .cl-tab-label { display: none; }
+        @media (min-width: 400px) { .cl-tab-label { display: inline; } }
+        @media (max-width: 359px) {
+          .cl-top-grid { grid-template-columns: 1fr 1fr !important; }
+          .cl-stats-grid { grid-template-columns: 1fr 1fr !important; }
+        }
+      `}</style>
 
       {!onboarded&&<Onboarding onDone={()=>{setOnboarded(true);lsSet("st_onboarded",true);}} pal={pal} t={t}/>}
       {showWeekly&&<SlideModal onClose={()=>setShowWeekly(false)} pal={pal}>{close=><WeeklyReview log={log} activities={activities} streaks={streaks} onClose={close} pal={pal} t={t}/>}</SlideModal>}
@@ -774,175 +868,229 @@ export default function App(){
       {toast&&<MilestoneToast milestone={toast.milestone} actName={toast.actName} onClose={()=>setToast(null)} pal={pal} t={t}/>}
 
       {/* Header */}
-      <div style={{background:`linear-gradient(135deg,${pal.bg1},${pal.bg2})`,borderBottom:`1px solid ${pal.border}`,padding:"16px 18px 0"}}>
+      <div style={{background:`linear-gradient(135deg,${pal.bg1},${pal.bg2})`,borderBottom:`1px solid ${pal.border}`,padding:"14px 14px 0"}}>
         <div style={{maxWidth:640,margin:"0 auto"}}>
-          <div style={{marginBottom:12}}>
-            <h1 style={{margin:"0 0 2px",fontSize:22,fontWeight:800,color:pal.a1}}>Chainly ⛓️</h1>
-            <p style={{margin:0,color:pal.sub,fontSize:12}}>{new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</p>
+          <div style={{marginBottom:10,display:"flex",alignItems:"baseline",justifyContent:"space-between",flexWrap:"wrap",gap:4}}>
+            <h1 style={{margin:0,fontSize:"clamp(18px,5vw,22px)",fontWeight:800,color:pal.a1,whiteSpace:"nowrap"}}>Chainly ⛓️</h1>
+            <p style={{margin:0,color:pal.sub,fontSize:"clamp(10px,2.8vw,12px)",textAlign:"right"}}>{new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</p>
           </div>
-          <div style={{display:"flex",gap:0,overflowX:"auto"}}>
+          <div style={{display:"flex",gap:0,overflowX:"auto",scrollbarWidth:"none",msOverflowStyle:"none"}}>
             {tabs.map(tb=>(
-              <button key={tb.id} onClick={()=>setTab(tb.id)} style={{padding:"8px 13px",borderRadius:"10px 10px 0 0",border:"none",cursor:"pointer",fontWeight:600,fontSize:12,whiteSpace:"nowrap",background:tab===tb.id?pal.a1:"transparent",color:tab===tb.id?"#fff":pal.sub,borderBottom:tab===tb.id?`2px solid ${pal.a1}`:"2px solid transparent",display:"flex",alignItems:"center",gap:5}}>
-                <span style={{fontSize:13}}>{tb.icon}</span> {tb.label}
+              <button key={tb.id} onClick={()=>setTab(tb.id)} style={{padding:"8px clamp(6px,2.5vw,13px)",borderRadius:"10px 10px 0 0",border:"none",cursor:"pointer",fontWeight:600,fontSize:"clamp(10px,2.8vw,12px)",whiteSpace:"nowrap",background:tab===tb.id?pal.a1:"transparent",color:tab===tb.id?"#fff":pal.sub,borderBottom:tab===tb.id?`2px solid ${pal.a1}`:"2px solid transparent",display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
+                <span style={{fontSize:"clamp(11px,3vw,13px)"}}>{tb.icon}</span>
+                <span className="cl-tab-label">{tb.label}</span>
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      <div style={{maxWidth:640,margin:"18px auto",padding:"0 14px"}}>
+      <div style={{maxWidth:640,margin:"16px auto",padding:"0 12px"}}>
 
-        {/* CHECK-IN */}
+        {/* ── CHECK-IN ── */}
         {tab==="checkin"&&<div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
+          <div className="cl-top-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
             {[["🔥",t.streak,t.days(overallStreak)],["📅",t.active,totalActive],["📊",t.week,`${weeklyDone}/7`]].map(([e,l,v])=>(
-              <div key={l} style={{...cardStyle,textAlign:"center",padding:12}}><div style={{fontSize:18}}>{e}</div><div style={{fontSize:18,fontWeight:800,color:pal.a1}}>{v}</div><div style={{fontSize:10,color:pal.muted,marginTop:1}}>{l}</div></div>
+              <div key={l} style={{...cardStyle,textAlign:"center",padding:"10px 8px"}}>
+                <div style={{fontSize:"clamp(15px,4vw,18px)"}}>{e}</div>
+                <div className="cl-stat-val" style={{color:pal.a1}}>{v}</div>
+                <div className="cl-stat-label" style={{color:pal.muted}}>{l}</div>
+              </div>
             ))}
           </div>
 
           {/* Rest + Freeze */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
             {hasSportToday
-              ?<button onClick={()=>toggleRest(todayKey)} style={{padding:"10px",borderRadius:12,background:isRestToday?pal.a1+"33":"rgba(255,255,255,0.03)",border:`1px solid ${isRestToday?pal.a1:pal.border}`,color:isRestToday?pal.a1:pal.sub,fontWeight:700,cursor:"pointer",fontSize:12}}>{isRestToday?t.restDayDone:t.restDay}</button>
-              :<div style={{padding:"10px",borderRadius:12,background:"rgba(255,255,255,0.02)",border:`1px solid rgba(255,255,255,0.04)`,color:pal.muted,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",textAlign:"center",lineHeight:1.3}}>{t.restDayNotApplicable}</div>
+              ?<button onClick={()=>toggleRest(todayKey)} style={{padding:"9px 8px",borderRadius:12,background:isRestToday?pal.a1+"33":"rgba(255,255,255,0.03)",border:`1px solid ${isRestToday?pal.a1:pal.border}`,color:isRestToday?pal.a1:pal.sub,fontWeight:700,cursor:"pointer",fontSize:"clamp(10px,2.8vw,12px)"}}>{isRestToday?t.restDayDone:t.restDay}</button>
+              :<div style={{padding:"9px 8px",borderRadius:12,background:"rgba(255,255,255,0.02)",border:`1px solid rgba(255,255,255,0.04)`,color:pal.muted,fontSize:"clamp(9px,2.5vw,11px)",display:"flex",alignItems:"center",justifyContent:"center",textAlign:"center",lineHeight:1.3}}>{t.restDayNotApplicable}</div>
             }
-            <button onClick={()=>{if(freezeAvailable){toggleRest(todayKey);setFreezesUsed(p=>({...p,[thisMonth]:true}));}}} style={{padding:"8px 10px",borderRadius:12,background:"rgba(255,255,255,0.02)",border:`1px solid ${freezeAvailable?pal.border:"rgba(255,255,255,0.04)"}`,color:freezeAvailable?pal.sub:pal.muted,fontWeight:700,cursor:freezeAvailable?"pointer":"default",fontSize:11,lineHeight:1.4,textAlign:"center"}}>
+            <button onClick={()=>{if(freezeAvailable){toggleRest(todayKey);setFreezesUsed(p=>({...p,[thisMonth]:true}));}}} style={{padding:"7px 8px",borderRadius:12,background:"rgba(255,255,255,0.02)",border:`1px solid ${freezeAvailable?pal.border:"rgba(255,255,255,0.04)"}`,color:freezeAvailable?pal.sub:pal.muted,fontWeight:700,cursor:freezeAvailable?"pointer":"default",fontSize:"clamp(9px,2.5vw,11px)",lineHeight:1.4,textAlign:"center"}}>
               <div>{freezeAvailable?t.streakFreeze:t.freezeUsed}</div>
-              <div style={{fontSize:10,fontWeight:400,marginTop:2,color:pal.muted}}>{freezeAvailable?t.freezeOnceMonth:t.freezeRefillIn(daysUntilFreeze)}</div>
+              <div style={{fontWeight:400,marginTop:2,color:pal.muted}}>{freezeAvailable?t.freezeOnceMonth:t.freezeRefillIn(daysUntilFreeze)}</div>
             </button>
           </div>
 
           {!(log[yesterdayKey]&&Object.values(log[yesterdayKey]).some(x=>x?.done))&&(
-            <div onClick={()=>setDayModal(yesterdayKey)} style={{...cardStyle,padding:"11px 14px",marginBottom:12,cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderColor:"#f59e0b55"}}>
-              <span style={{fontSize:18}}>⏪</span>
-              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:"#f59e0b"}}>{t.forgotYesterday}</div><div style={{fontSize:11,color:pal.muted}}>{t.forgotYesterdayDesc}</div></div>
-              <span style={{color:pal.muted}}>›</span>
+            <div onClick={()=>setDayModal(yesterdayKey)} style={{...cardStyle,padding:"10px 13px",marginBottom:10,cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderColor:"#f59e0b55"}}>
+              <span style={{fontSize:18,flexShrink:0}}>⏪</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:"clamp(11px,3vw,13px)",fontWeight:700,color:"#f59e0b",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t.forgotYesterday}</div>
+                <div style={{fontSize:"clamp(10px,2.5vw,11px)",color:pal.muted}}>{t.forgotYesterdayDesc}</div>
+              </div>
+              <span style={{color:pal.muted,flexShrink:0}}>›</span>
             </div>
           )}
 
           <div style={cardStyle}>
-            <h3 style={{margin:"0 0 12px",fontSize:14,color:pal.sub,fontWeight:600}}>{t.todayHabits}</h3>
+            <h3 style={{margin:"0 0 10px",fontSize:"clamp(12px,3.2vw,14px)",color:pal.sub,fontWeight:600}}>{t.todayHabits}</h3>
             {activities.length===0&&<p style={{color:pal.muted,fontSize:14}}>{t.noHabitsYet}</p>}
-            <div style={{display:"flex",flexDirection:"column",gap:9}}>
-              {activities.map(a=>{
-                const done=!!todayLog[a.id]?.done,s=streaks[a.id]||{current:0},gp=weekGoalProgress(a),ip=pulseId===a.id;
-                return(
-                  <div key={a.id}>
-                    <div onClick={()=>toggle(a.id)} style={{display:"flex",alignItems:"center",gap:11,padding:"11px 13px",borderRadius:12,cursor:"pointer",background:done?a.color+"22":"rgba(255,255,255,0.03)",border:`1px solid ${done?a.color+"66":pal.border}`,transition:"all 0.2s",transform:ip?"scale(1.02)":"scale(1)",boxShadow:ip?`0 0 20px ${a.color}55`:"none"}}>
-                      <span style={{fontSize:19,flexShrink:0}}>{a.icon||"⭕"}</span>
-                      <div style={{width:21,height:21,borderRadius:"50%",flexShrink:0,background:done?a.color:"rgba(255,255,255,0.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,transition:"all 0.2s",boxShadow:ip&&done?`0 0 12px ${a.color}`:"none"}}>{done?"✓":""}</div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontWeight:700,fontSize:14,color:done?a.color:tx}}>{a.name}</div>
-                        <div style={{fontSize:11,color:pal.muted,marginTop:1,display:"flex",gap:6,alignItems:"center"}}>
-                          <span>🔥{t.days(s.current)} · {t.bestStreak} {t.days(s.best)}</span>
-                          <span style={{background:"rgba(255,255,255,0.07)",padding:"1px 6px",borderRadius:6,fontSize:10}}>{catEmoji(a.category)} {catLabel(a.category)}</span>
+
+            {/* Grouped by category */}
+            {CATEGORIES.map(cat=>{
+              const catActs = groups[cat] || [];
+              if (catActs.length === 0) return null;
+              return (
+                <div key={cat}>
+                  <CatHeader cat={cat} label={catLabel(cat)} pal={pal} count={catActs.length} />
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {catActs.map(a=>{
+                      const done=!!todayLog[a.id]?.done,s=streaks[a.id]||{current:0},gp=weekGoalProgress(a),ip=pulseId===a.id;
+                      return(
+                        <div key={a.id}>
+                          <div onClick={()=>toggle(a.id)} className="cl-habit-row" style={{padding:"10px 12px",borderRadius:12,cursor:"pointer",background:done?a.color+"22":"rgba(255,255,255,0.03)",border:`1px solid ${done?a.color+"66":pal.border}`,transition:"all 0.2s",transform:ip?"scale(1.02)":"scale(1)",boxShadow:ip?`0 0 20px ${a.color}55`:"none"}}>
+                            <span style={{fontSize:"clamp(15px,4vw,19px)",flexShrink:0}}>{a.icon||"⭕"}</span>
+                            <div style={{width:20,height:20,borderRadius:"50%",flexShrink:0,background:done?a.color:"rgba(255,255,255,0.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,transition:"all 0.2s",boxShadow:ip&&done?`0 0 12px ${a.color}`:"none"}}>{done?"✓":""}</div>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div className="cl-habit-name" style={{color:done?a.color:tx}}>{a.name}</div>
+                              <div className="cl-habit-meta" style={{color:pal.muted}}>
+                                <span>🔥{t.days(s.current)} · {t.bestStreak} {t.days(s.best)}</span>
+                              </div>
+                            </div>
+                            <div style={{fontSize:"clamp(10px,2.8vw,12px)",color:done?a.color:pal.muted,fontWeight:700,flexShrink:0}}>{done?t.done:t.tap}</div>
+                          </div>
+                          {gp&&<div style={{margin:"3px 0 0",padding:"5px 12px",borderRadius:"0 0 10px 10px",background:"rgba(255,255,255,0.02)",border:`1px solid ${pal.border}`,borderTop:"none"}}>
+                            <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}><span style={{fontSize:10,color:pal.sub}}>{t.weeklyGoal}</span><span style={{fontSize:10,color:gp.done>=gp.goal?pal.a1:pal.sub,fontWeight:700}}>{gp.done}/{gp.goal}{t.perWeek}</span></div>
+                            <div style={{height:3,borderRadius:2,background:"rgba(255,255,255,0.06)"}}><div style={{height:"100%",borderRadius:2,background:gp.done>=gp.goal?pal.a1:a.color,width:gp.pct+"%",transition:"width 0.4s"}}/></div>
+                          </div>}
                         </div>
-                      </div>
-                      <div style={{fontSize:12,color:done?a.color:pal.muted,fontWeight:700}}>{done?t.done:t.tap}</div>
-                    </div>
-                    {gp&&<div style={{margin:"3px 0 0",padding:"5px 13px",borderRadius:"0 0 10px 10px",background:"rgba(255,255,255,0.02)",border:`1px solid ${pal.border}`,borderTop:"none"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}><span style={{fontSize:10,color:pal.sub}}>{t.weeklyGoal}</span><span style={{fontSize:10,color:gp.done>=gp.goal?pal.a1:pal.sub,fontWeight:700}}>{gp.done}/{gp.goal}{t.perWeek}</span></div>
-                      <div style={{height:3,borderRadius:2,background:"rgba(255,255,255,0.06)"}}><div style={{height:"100%",borderRadius:2,background:gp.done>=gp.goal?pal.a1:a.color,width:gp.pct+"%",transition:"width 0.4s"}}/></div>
-                    </div>}
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
         </div>}
 
-        {/* STATS */}
-        {tab==="stats"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        {/* ── STATS ── */}
+        {tab==="stats"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div className="cl-stats-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
             {[["🔥",t.overallStreak,t.days(overallStreak)],["📅",t.activeDays,totalActive],["💪",t.completions,totalCompletions],["📆",t.bestDay,bestDow],["🏆",t.longestStreak,t.days(longestOverall)],["📈",t.bestWeek,`${mostActiveWeek()}/7`]].map(([e,l,v])=>(
-              <div key={l} style={{...cardStyle,padding:13}}><div style={{fontSize:19,marginBottom:2}}>{e}</div><div style={{fontSize:19,fontWeight:800,color:pal.a1}}>{v}</div><div style={{fontSize:10,color:pal.muted,marginTop:1}}>{l}</div></div>
+              <div key={l} style={{...cardStyle,padding:12}}>
+                <div style={{fontSize:"clamp(16px,4.5vw,19px)",marginBottom:2}}>{e}</div>
+                <div className="cl-stat-val" style={{color:pal.a1}}>{v}</div>
+                <div className="cl-stat-label" style={{color:pal.muted}}>{l}</div>
+              </div>
             ))}
           </div>
           <div style={cardStyle}>
-            <h3 style={{margin:"0 0 11px",fontSize:13,color:pal.sub}}>{t.thisWeek} <span style={{fontSize:10,color:pal.muted}}>({t.tapToView})</span></h3>
-            <div style={{display:"flex",alignItems:"flex-end",gap:6,height:95}}>
+            <h3 style={{margin:"0 0 10px",fontSize:13,color:pal.sub}}>{t.thisWeek} <span style={{fontSize:10,color:pal.muted}}>({t.tapToView})</span></h3>
+            <div style={{display:"flex",alignItems:"flex-end",gap:5,height:90,overflowX:"auto"}}>
               {bars.map(b=>(
-                <div key={b.k} onClick={()=>setDayModal(b.k)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer"}}>
+                <div key={b.k} onClick={()=>setDayModal(b.k)} style={{flex:1,minWidth:30,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer"}}>
                   <div style={{fontSize:10,color:pal.a1,fontWeight:700}}>{b.done>0?b.done:""}</div>
-                  <div style={{width:"100%",borderRadius:5,height:b.done===0?4:Math.max(8,b.done/maxBar*78),background:b.k===todayKey?pal.a1:b.done>0?pal.a1+"80":"rgba(255,255,255,0.06)",transition:"height 0.5s"}}/>
-                  <div style={{fontSize:10,color:b.k===todayKey?pal.a1:pal.muted}}>{b.label}</div>
+                  <div style={{width:"100%",borderRadius:5,height:b.done===0?4:Math.max(8,b.done/maxBar*72),background:b.k===todayKey?pal.a1:b.done>0?pal.a1+"80":"rgba(255,255,255,0.06)",transition:"height 0.5s"}}/>
+                  <div style={{fontSize:"clamp(9px,2.5vw,10px)",color:b.k===todayKey?pal.a1:pal.muted}}>{b.label}</div>
                 </div>
               ))}
             </div>
           </div>
           <div style={cardStyle}>
-            <h3 style={{margin:"0 0 11px",fontSize:13,color:pal.sub}}>{t.monthlyActiveDays}</h3>
-            <div style={{display:"flex",alignItems:"flex-end",gap:6,height:75}}>
+            <h3 style={{margin:"0 0 10px",fontSize:13,color:pal.sub}}>{t.monthlyActiveDays}</h3>
+            <div style={{display:"flex",alignItems:"flex-end",gap:5,height:70}}>
               {months.map(m=>{const v=monthlyCounts[m]||0,max=Math.max(...months.map(x=>monthlyCounts[x]||0),1);return(
-                <div key={m} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                <div key={m} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
                   <div style={{fontSize:9,color:pal.a1,fontWeight:700}}>{v||""}</div>
-                  <div style={{width:"100%",borderRadius:4,height:v===0?4:Math.max(5,v/max*55),background:v>0?pal.a1+"99":"rgba(255,255,255,0.06)",transition:"height 0.4s"}}/>
-                  <div style={{fontSize:9,color:pal.muted}}>{m.slice(5)}</div>
+                  <div style={{width:"100%",borderRadius:4,height:v===0?4:Math.max(5,v/max*50),background:v>0?pal.a1+"99":"rgba(255,255,255,0.06)",transition:"height 0.4s"}}/>
+                  <div style={{fontSize:"clamp(8px,2vw,9px)",color:pal.muted}}>{m.slice(5)}</div>
                 </div>
               );})}
             </div>
           </div>
+
+          {/* Habit Streaks — grouped by category */}
           <div style={cardStyle}>
-            <h3 style={{margin:"0 0 11px",fontSize:13,color:pal.sub}}>{t.habitStreaks}</h3>
+            <h3 style={{margin:"0 0 6px",fontSize:13,color:pal.sub}}>{t.habitStreaks}</h3>
             {activities.length===0&&<p style={{color:pal.muted,fontSize:13}}>—</p>}
-            {activities.map(a=>{const s=streaks[a.id]||{current:0,best:0};const pct=s.best>0?Math.round(s.current/s.best*100):0;const cr=Math.round(Object.values(log).filter(d=>d[a.id]?.done).length/Math.max(Object.keys(log).length,1)*100);return(
-              <div key={a.id} style={{marginBottom:13}}>
-                <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                  <span style={{fontWeight:600,fontSize:13}}>{a.icon} <span style={{color:a.color}}>●</span> {a.name} <span style={{fontSize:10,color:pal.muted,background:"rgba(255,255,255,0.07)",padding:"1px 5px",borderRadius:5}}>{catEmoji(a.category)}</span></span>
-                  <span style={{fontSize:11,color:pal.sub}}>🔥{t.days(s.current)} · {t.days(s.best)} · {cr}%</span>
+            {CATEGORIES.map(cat=>{
+              const catActs = groups[cat] || [];
+              if (catActs.length === 0) return null;
+              return (
+                <div key={cat}>
+                  <CatHeader cat={cat} label={catLabel(cat)} pal={pal} count={catActs.length} />
+                  {catActs.map(a=>{
+                    const s=streaks[a.id]||{current:0,best:0};
+                    const pct=s.best>0?Math.round(s.current/s.best*100):0;
+                    const cr=Math.round(Object.values(log).filter(d=>d[a.id]?.done).length/Math.max(Object.keys(log).length,1)*100);
+                    return(
+                      <div key={a.id} style={{marginBottom:12}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,gap:6}}>
+                          <span style={{fontWeight:600,fontSize:"clamp(11px,3vw,13px)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0}}>{a.icon} <span style={{color:a.color}}>●</span> {a.name}</span>
+                          <span style={{fontSize:"clamp(9px,2.5vw,11px)",color:pal.sub,flexShrink:0}}>🔥{t.days(s.current)} · {t.days(s.best)} · {cr}%</span>
+                        </div>
+                        <div style={{height:5,borderRadius:3,background:"rgba(255,255,255,0.06)"}}><div style={{height:"100%",borderRadius:3,background:a.color,width:pct+"%",transition:"width 0.5s"}}/></div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div style={{height:5,borderRadius:3,background:"rgba(255,255,255,0.06)"}}><div style={{height:"100%",borderRadius:3,background:a.color,width:pct+"%",transition:"width 0.5s"}}/></div>
-              </div>
-            );})}
+              );
+            })}
           </div>
+
           <div style={cardStyle}>
             <h3 style={{margin:"0 0 8px",fontSize:13,color:pal.sub}}>{t.heatmap} <span style={{fontSize:10,color:pal.muted}}>({t.tapCell})</span></h3>
             <div style={{display:"grid",gridTemplateColumns:"repeat(16,1fr)",gap:2}}>
               {Array.from({length:16},(_,w)=>Array.from({length:7},(_,d)=>{const cell=heatmap[w*7+d];if(!cell)return<div key={`${w}-${d}`}/>;const alpha=cell.done===0?0.06:0.15+cell.done/Math.max(activities.length,1)*0.85;return<div key={cell.k} onClick={()=>setDayModal(cell.k)} style={{aspectRatio:"1",borderRadius:2,cursor:"pointer",background:cell.isRest?`rgba(${hexToRgb(pal.a1)},0.15)`:cell.done===0?"rgba(255,255,255,0.06)":`rgba(${hexToRgb(pal.a1)},${alpha})`,border:cell.k===todayKey?`1px solid ${pal.a1}`:cell.isRest?`1px solid ${pal.a1}44`:"none"}}/>; }))}
             </div>
-            <div style={{display:"flex",alignItems:"center",gap:5,marginTop:7,fontSize:10,color:pal.muted}}>
+            <div style={{display:"flex",alignItems:"center",gap:5,marginTop:7,fontSize:10,color:pal.muted,flexWrap:"wrap"}}>
               <span>{t.less}</span>{[0.06,0.3,0.5,0.7,0.95].map(a=><div key={a} style={{width:10,height:10,borderRadius:2,background:`rgba(${hexToRgb(pal.a1)},${a})`}}/>)}<span>{t.more}</span>
             </div>
           </div>
         </div>}
 
-        {/* HABITS */}
+        {/* ── HABITS ── */}
         {tab==="habits"&&<div style={cardStyle}>
           <h3 style={{margin:"0 0 12px",fontSize:14,color:pal.sub}}>{t.myHabits}</h3>
           {/* Category picker for new habit */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:10}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10}}>
             {CATEGORIES.map(c=>(
-              <button key={c} onClick={()=>setNewCat(c)} style={{padding:"7px 10px",borderRadius:10,border:`1px solid ${newCat===c?pal.a1:pal.border}`,background:newCat===c?pal.a1+"22":"transparent",color:newCat===c?pal.a1:pal.sub,cursor:"pointer",fontWeight:600,fontSize:12,display:"flex",alignItems:"center",gap:6}}>
-                <span style={{fontSize:15}}>{catEmoji(c)}</span>{catLabel(c)}
+              <button key={c} onClick={()=>setNewCat(c)} style={{padding:"7px 8px",borderRadius:10,border:`1px solid ${newCat===c?pal.a1:pal.border}`,background:newCat===c?pal.a1+"22":"transparent",color:newCat===c?pal.a1:pal.sub,cursor:"pointer",fontWeight:600,fontSize:"clamp(10px,2.8vw,12px)",display:"flex",alignItems:"center",gap:5}}>
+                <span style={{fontSize:"clamp(12px,3.5vw,15px)"}}>{catEmoji(c)}</span>
+                <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{catLabel(c)}</span>
               </button>
             ))}
           </div>
-          <div style={{display:"flex",gap:8,marginBottom:14}}>
-            <input value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addActivity()} placeholder={t.newHabitPlaceholder} style={{flex:1,padding:"9px 13px",borderRadius:10,background:"rgba(255,255,255,0.06)",border:`1px solid ${pal.border}`,color:tx,fontSize:14,outline:"none"}}/>
-            <button onClick={addActivity} style={{padding:"9px 16px",borderRadius:10,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:14}}>{t.add}</button>
+          <div style={{display:"flex",gap:8,marginBottom:12}}>
+            <input value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addActivity()} placeholder={t.newHabitPlaceholder} style={{flex:1,padding:"9px 12px",borderRadius:10,background:"rgba(255,255,255,0.06)",border:`1px solid ${pal.border}`,color:tx,fontSize:"clamp(12px,3.5vw,14px)",outline:"none",minWidth:0}}/>
+            <button onClick={addActivity} style={{padding:"9px 14px",borderRadius:10,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:"clamp(12px,3.5vw,14px)",whiteSpace:"nowrap",flexShrink:0}}>{t.add}</button>
           </div>
           <div style={{fontSize:11,color:pal.muted,marginBottom:9}}>{t.swipeToDelete}</div>
-          <div style={{display:"flex",flexDirection:"column",gap:9}}>
-            {activities.length===0&&<p style={{color:pal.muted,fontSize:13}}>{t.noHabitsYet}</p>}
-            {activities.map(a=>{const gp=weekGoalProgress(a);return(
-              <SwipeRow key={a.id} onDelete={()=>setDeleteAct(a)}>
-                <div style={{padding:"11px 13px",borderRadius:12,background:"rgba(255,255,255,0.03)",border:`1px solid ${pal.border}`}}>
-                  <div style={{display:"flex",alignItems:"center",gap:9}}>
-                    <span style={{fontSize:18}}>{a.icon||"⭕"}</span>
-                    <div style={{width:9,height:9,borderRadius:"50%",background:a.color,flexShrink:0}}/>
-                    <span style={{flex:1,fontWeight:600,fontSize:13,color:tx}}>{a.name}</span>
-                    <span style={{fontSize:10,color:pal.muted,background:"rgba(255,255,255,0.07)",padding:"2px 6px",borderRadius:6}}>{catEmoji(a.category)} {catLabel(a.category)}</span>
-                    {a.goalType==="days"&&<span style={{fontSize:10,color:pal.a1,fontWeight:600}}>{a.goalVal}{t.perWeek}</span>}
-                    <button onClick={()=>setEditAct(a)} style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${pal.border}`,color:tx,borderRadius:8,padding:"3px 9px",cursor:"pointer",fontSize:11}}>{t.edit}</button>
-                  </div>
-                  {gp&&<div style={{marginTop:6}}><div style={{height:3,borderRadius:2,background:"rgba(255,255,255,0.06)"}}><div style={{height:"100%",borderRadius:2,background:gp.done>=gp.goal?pal.a1:a.color,width:gp.pct+"%",transition:"width 0.4s"}}/></div><div style={{fontSize:10,color:pal.muted,marginTop:2}}>{gp.done}/{gp.goal} {t.thisWeekCount}</div></div>}
+
+          {activities.length===0&&<p style={{color:pal.muted,fontSize:13}}>{t.noHabitsYet}</p>}
+
+          {/* Grouped by category */}
+          {CATEGORIES.map(cat=>{
+            const catActs = groups[cat] || [];
+            if (catActs.length === 0) return null;
+            return (
+              <div key={cat}>
+                <CatHeader cat={cat} label={catLabel(cat)} pal={pal} count={catActs.length} />
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {catActs.map(a=>{
+                    const gp=weekGoalProgress(a);
+                    return(
+                      <SwipeRow key={a.id} onDelete={()=>setDeleteAct(a)}>
+                        <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(255,255,255,0.03)",border:`1px solid ${pal.border}`}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8}}>
+                            <span style={{fontSize:"clamp(14px,4vw,18px)",flexShrink:0}}>{a.icon||"⭕"}</span>
+                            <div style={{width:8,height:8,borderRadius:"50%",background:a.color,flexShrink:0}}/>
+                            <span style={{flex:1,fontWeight:600,fontSize:"clamp(11px,3vw,13px)",color:tx,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0}}>{a.name}</span>
+                            {a.goalType==="days"&&<span style={{fontSize:10,color:pal.a1,fontWeight:600,flexShrink:0}}>{a.goalVal}{t.perWeek}</span>}
+                            <button onClick={()=>setEditAct(a)} style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${pal.border}`,color:tx,borderRadius:8,padding:"3px 8px",cursor:"pointer",fontSize:"clamp(10px,2.5vw,11px)",flexShrink:0}}>{t.edit}</button>
+                          </div>
+                          {gp&&<div style={{marginTop:5}}><div style={{height:3,borderRadius:2,background:"rgba(255,255,255,0.06)"}}><div style={{height:"100%",borderRadius:2,background:gp.done>=gp.goal?pal.a1:a.color,width:gp.pct+"%",transition:"width 0.4s"}}/></div><div style={{fontSize:10,color:pal.muted,marginTop:2}}>{gp.done}/{gp.goal} {t.thisWeekCount}</div></div>}
+                        </div>
+                      </SwipeRow>
+                    );
+                  })}
                 </div>
-              </SwipeRow>
-            );})}
-          </div>
+              </div>
+            );
+          })}
         </div>}
 
-        {/* SHARE */}
+        {/* ── SHARE ── */}
         {tab==="share"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
           <div style={cardStyle}>
             <h3 style={{margin:"0 0 5px",fontSize:14,color:pal.sub}}>{t.shareProgress}</h3>
@@ -952,18 +1100,18 @@ export default function App(){
           <canvas ref={canvasRef} style={{display:"none"}}/>
           {shareReady&&<div style={cardStyle}>
             <img src={canvasRef.current.toDataURL()} alt="Stats" style={{width:"100%",borderRadius:12,marginBottom:12}}/>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9,marginBottom:9}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
               <button onClick={downloadPNG} style={{padding:"10px",borderRadius:10,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>{t.download}</button>
               <button onClick={copyImg} style={{padding:"10px",borderRadius:10,background:"rgba(255,255,255,0.08)",border:`1px solid ${pal.border}`,color:tx,fontWeight:700,cursor:"pointer",fontSize:13}}>{t.copy}</button>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
               <button onClick={shareTwitter} style={{padding:"10px",borderRadius:10,background:"#1da1f2",border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>𝕏 Twitter</button>
               <button onClick={shareWhatsApp} style={{padding:"10px",borderRadius:10,background:"#25d366",border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>💬 WhatsApp</button>
             </div>
           </div>}
         </div>}
 
-        {/* SETTINGS */}
+        {/* ── SETTINGS ── */}
         {tab==="settings"&&<SettingsPanel palKey={palKey} setPalKey={setPalKey} lang={lang} setLang={setLang} notifPerm={notifPerm} onEnableNotif={enableNotifications} pal={pal} t={t}/>}
 
       </div>
