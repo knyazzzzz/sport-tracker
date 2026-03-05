@@ -5,7 +5,9 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const ACCENT = "#10b981";
 const ACCENT2 = "#34d399";
 
-function toKey(date) { return date.toISOString().slice(0,10); }
+function toKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
 function today() { return toKey(new Date()); }
 
 function lsGet(key, fallback) {
