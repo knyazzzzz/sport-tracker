@@ -405,39 +405,42 @@ function playCheckSound(isDone){
 }
 
 // ── Long-press hook ───────────────────────────────────────────────────────────
-function useLongPress(callback, ms=480){
+function useLongPress(callback, ms=480, {onStart, onEnd}={}){
   const timer=useRef(null);
   const fired=useRef(false);
-  const [pressing,setPressing]=useState(false);
   const start=useCallback(()=>{
     fired.current=false;
-    setPressing(true);
+    if(onStart)onStart();
     timer.current=setTimeout(()=>{
       fired.current=true;
-      setPressing(false);
+      if(onEnd)onEnd();
       haptic("heavy");
       callback();
     },ms);
   },[callback,ms]);
   const cancel=useCallback(()=>{
     if(timer.current){clearTimeout(timer.current);timer.current=null;}
-    setPressing(false);
+    if(onEnd)onEnd();
   },[]);
-  return {onMouseDown:start,onMouseUp:cancel,onMouseLeave:cancel,onTouchStart:start,onTouchEnd:cancel,onTouchCancel:cancel,didFire:()=>fired.current,pressing};
+  return {
+    onMouseDown:start, onMouseUp:cancel, onMouseLeave:cancel,
+    onTouchStart:start, onTouchEnd:cancel, onTouchCancel:cancel,
+    didFire:()=>fired.current,
+  };
 }
 
-// ── CheckinRow — wraps one habit in the Check-in tab ─────────────────────────
-// Must be a component (not inline) so useLongPress (which uses useState) is
-// called at component level, never inside a .map() callback.
+// ── CheckinRow ────────────────────────────────────────────────────────────────
 function CheckinRow({a, done, streak, pulse, goalProgress, onToggle, onEdit, pal, t}){
-  const lp = useLongPress(onEdit);
-  // Destructure only DOM-safe event handlers; never spread pressing/didFire
-  const {pressing, didFire, ...lpHandlers} = lp;
-  const tx = pal.text||"#fff";
+  const [pressing,setPressing]=useState(false);
+  const lpHandlers=useLongPress(onEdit,480,{
+    onStart:()=>setPressing(true),
+    onEnd:()=>setPressing(false),
+  });
+  const tx=pal.text||"#fff";
   return(
     <div>
       <div
-        onClick={()=>{if(didFire())return; onToggle();}}
+        onClick={()=>{if(lpHandlers.didFire())return; onToggle();}}
         {...lpHandlers}
         style={{
           display:"flex",alignItems:"center",gap:11,padding:"12px 13px",
