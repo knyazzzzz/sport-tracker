@@ -405,15 +405,86 @@ function playCheckSound(isDone){
 }
 
 // ── Long-press hook ───────────────────────────────────────────────────────────
-function useLongPress(callback, ms=520){
+function useLongPress(callback, ms=480){
   const timer=useRef(null);
   const fired=useRef(false);
-  const start=useCallback(()=>{fired.current=false;timer.current=setTimeout(()=>{fired.current=true;haptic("heavy");callback();},ms);},[callback,ms]);
-  const cancel=useCallback(()=>{if(timer.current){clearTimeout(timer.current);timer.current=null;}},[]);
-  return {onMouseDown:start,onMouseUp:cancel,onMouseLeave:cancel,onTouchStart:start,onTouchEnd:cancel,onTouchCancel:cancel,didFire:()=>fired.current};
+  const [pressing,setPressing]=useState(false);
+  const start=useCallback(()=>{
+    fired.current=false;
+    setPressing(true);
+    timer.current=setTimeout(()=>{
+      fired.current=true;
+      setPressing(false);
+      haptic("heavy");
+      callback();
+    },ms);
+  },[callback,ms]);
+  const cancel=useCallback(()=>{
+    if(timer.current){clearTimeout(timer.current);timer.current=null;}
+    setPressing(false);
+  },[]);
+  return {onMouseDown:start,onMouseUp:cancel,onMouseLeave:cancel,onTouchStart:start,onTouchEnd:cancel,onTouchCancel:cancel,didFire:()=>fired.current,pressing};
 }
 
-// ── Group by category ─────────────────────────────────────────────────────────
+// ── CheckinRow — wraps one habit in the Check-in tab ─────────────────────────
+// Must be a component (not inline) so useLongPress (which uses useState) is
+// called at component level, never inside a .map() callback.
+function CheckinRow({a, done, streak, pulse, goalProgress, onToggle, onEdit, pal, t}){
+  const lp = useLongPress(onEdit);
+  // Destructure only DOM-safe event handlers; never spread pressing/didFire
+  const {pressing, didFire, ...lpHandlers} = lp;
+  const tx = pal.text||"#fff";
+  return(
+    <div>
+      <div
+        onClick={()=>{if(didFire())return; onToggle();}}
+        {...lpHandlers}
+        style={{
+          display:"flex",alignItems:"center",gap:11,padding:"12px 13px",
+          borderRadius:12,cursor:"pointer",
+          background:done?a.color+"22":"rgba(255,255,255,0.03)",
+          border:`1px solid ${pressing?a.color:done?a.color+"66":pal.border}`,
+          transition:pressing?"border-color 0.1s":"all 0.2s",
+          transform:pulse?"scale(1.02)":"scale(1)",
+          boxShadow:pulse?`0 0 20px ${a.color}55`:pressing?`0 0 0 2px ${a.color}44`:"none",
+          minHeight:52, userSelect:"none",
+          opacity:pressing?0.88:1,
+        }}
+      >
+        <span style={{fontSize:"clamp(16px,4.5vw,20px)",flexShrink:0}}>{a.icon||"⭕"}</span>
+        <div style={{width:22,height:22,borderRadius:"50%",flexShrink:0,background:done?a.color:"rgba(255,255,255,0.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,transition:"all 0.2s",boxShadow:pulse&&done?`0 0 12px ${a.color}`:"none"}}>{done?"✓":""}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div className="cl-name" style={{color:done?a.color:tx}}>{a.name}</div>
+          <div className="cl-meta" style={{color:pal.muted}}>
+            <span>{t.days(streak.current)} · {t.bestStreak} {t.days(streak.best)}</span>
+          </div>
+        </div>
+        <div style={{fontSize:"clamp(11px,3vw,13px)",color:done?pal.a1:pal.muted,fontWeight:700,flexShrink:0}}>{done?t.done:t.tap}</div>
+      </div>
+      {/* Hold-progress bar: fills over 480ms while pressing */}
+      <div style={{
+        height:pressing?3:0, borderRadius:"0 0 6px 6px",
+        background:"rgba(255,255,255,0.06)", overflow:"hidden",
+        transition:pressing?"height 0.1s":"height 0.2s", marginTop:-1,
+      }}>
+        <div style={{
+          height:"100%", background:a.color,
+          width:pressing?"100%":"0%",
+          transition:pressing?"width 480ms linear":"width 0.1s",
+        }}/>
+      </div>
+      {goalProgress&&<div style={{margin:"2px 0 0",padding:"5px 13px",borderRadius:"0 0 10px 10px",background:"rgba(255,255,255,0.02)",border:`1px solid ${pal.border}`,borderTop:"none"}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+          <span style={{fontSize:10,color:pal.sub}}>{t.weeklyGoal}</span>
+          <span style={{fontSize:10,color:goalProgress.done>=goalProgress.goal?pal.a1:pal.sub,fontWeight:700}}>{goalProgress.done}/{goalProgress.goal}{t.perWeek}</span>
+        </div>
+        <div style={{height:3,borderRadius:2,background:"rgba(255,255,255,0.06)"}}>
+          <div style={{height:"100%",borderRadius:2,background:goalProgress.done>=goalProgress.goal?pal.a1:a.color,width:goalProgress.pct+"%",transition:"width 0.4s"}}/>
+        </div>
+      </div>}
+    </div>
+  );
+}
 function groupByCategory(activities){
   const g={};CATEGORIES.forEach(c=>{g[c]=[];});
   activities.forEach(a=>{const c=a.category||"other";if(!g[c])g[c]=[];g[c].push(a);});
@@ -721,15 +792,25 @@ function SettingsPanel({palKey,setPalKey,lang,setLang,notifPerm,onEnableNotif,so
       </div>
 
       {/* Sound */}
-      <div style={{background:pal.card,border:`1px solid ${pal.border}`,borderRadius:16,padding:20}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <div
+        onClick={()=>setSoundEnabled(s=>!s)}
+        style={{background:pal.card,border:`1px solid ${pal.border}`,borderRadius:16,padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",gap:12}}
+      >
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:36,height:36,borderRadius:10,background:soundEnabled?pal.a1+"22":"rgba(255,255,255,0.06)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            {soundEnabled
+              ? <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={pal.a1} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+              : <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={pal.muted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+            }
+          </div>
           <div>
             <div style={{fontWeight:700,fontSize:14,color:tx}}>{t.soundFx}</div>
-            <div style={{fontSize:12,color:pal.muted,marginTop:2}}>{soundEnabled?t.soundOn:t.soundOff}</div>
+            <div style={{fontSize:12,color:pal.muted,marginTop:1}}>{soundEnabled?t.soundOn:t.soundOff}</div>
           </div>
-          <button onClick={()=>setSoundEnabled(s=>!s)} style={{width:52,height:30,borderRadius:15,background:soundEnabled?pal.a1:"rgba(255,255,255,0.1)",border:"none",cursor:"pointer",position:"relative",transition:"background 0.25s",flexShrink:0}}>
-            <div style={{position:"absolute",top:3,left:soundEnabled?24:3,width:24,height:24,borderRadius:"50%",background:"#fff",transition:"left 0.25s",boxShadow:"0 1px 4px rgba(0,0,0,0.3)"}}/>
-          </button>
+        </div>
+        {/* Toggle — visual only, click handled by parent row */}
+        <div style={{width:52,height:32,borderRadius:16,background:soundEnabled?pal.a1:"rgba(255,255,255,0.12)",position:"relative",transition:"background 0.25s",flexShrink:0}}>
+          <div style={{position:"absolute",top:4,left:soundEnabled?22:4,width:24,height:24,borderRadius:"50%",background:"#fff",transition:"left 0.25s",boxShadow:"0 1px 4px rgba(0,0,0,0.3)"}}/>
         </div>
       </div>
 
@@ -1118,7 +1199,10 @@ export default function App(){
           )}
 
           <div style={cardStyle}>
-            <h3 style={{margin:"0 0 10px",fontSize:"clamp(12px,3.2vw,14px)",color:pal.sub,fontWeight:600}}>{t.todayHabits}</h3>
+            <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:10,gap:6}}>
+              <h3 style={{margin:0,fontSize:"clamp(12px,3.2vw,14px)",color:pal.sub,fontWeight:600}}>{t.todayHabits}</h3>
+              {activities.length>0&&<span style={{fontSize:10,color:pal.muted,whiteSpace:"nowrap"}}>{t.longPressHint}</span>}
+            </div>
 
             {activities.length===0
               ? <EmptyState pal={pal} t={t} variant="checkin" onCTA={()=>setTab("habits")}/>
@@ -1129,34 +1213,20 @@ export default function App(){
                     <div key={cat}>
                       <CatHeader cat={cat} label={catLabel(cat)} pal={pal} count={catActs.length}/>
                       <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:4}}>
-                        {catActs.map(a=>{
-                          const done=!!todayLog[a.id]?.done,s=streaks[a.id]||{current:0},gp=weekGoalProgress(a),ip=pulseId===a.id;
-                          // Long-press opens edit
-                          const lp=useLongPress(()=>setEditAct(a));
-                          return(
-                            <div key={a.id}>
-                              <div
-                                onClick={e=>{if(lp.didFire())return;toggle(a.id);}}
-                                {...lp}
-                                style={{display:"flex",alignItems:"center",gap:11,padding:"12px 13px",borderRadius:12,cursor:"pointer",background:done?a.color+"22":"rgba(255,255,255,0.03)",border:`1px solid ${done?a.color+"66":pal.border}`,transition:"all 0.2s",transform:ip?"scale(1.02)":"scale(1)",boxShadow:ip?`0 0 20px ${a.color}55`:"none",minHeight:52,userSelect:"none"}}
-                              >
-                                <span style={{fontSize:"clamp(16px,4.5vw,20px)",flexShrink:0}}>{a.icon||"⭕"}</span>
-                                <div style={{width:22,height:22,borderRadius:"50%",flexShrink:0,background:done?a.color:"rgba(255,255,255,0.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,transition:"all 0.2s",boxShadow:ip&&done?`0 0 12px ${a.color}`:"none"}}>{done?"✓":""}</div>
-                                <div style={{flex:1,minWidth:0}}>
-                                  <div className="cl-name" style={{color:done?a.color:tx}}>{a.name}</div>
-                                  <div className="cl-meta" style={{color:pal.muted}}>
-                                    <span>{t.days(s.current)} · {t.bestStreak} {t.days(s.best)}</span>
-                                  </div>
-                                </div>
-                                <div style={{fontSize:"clamp(11px,3vw,13px)",color:done?pal.a1:pal.muted,fontWeight:700,flexShrink:0}}>{done?t.done:t.tap}</div>
-                              </div>
-                              {gp&&<div style={{margin:"2px 0 0",padding:"5px 13px",borderRadius:"0 0 10px 10px",background:"rgba(255,255,255,0.02)",border:`1px solid ${pal.border}`,borderTop:"none"}}>
-                                <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:10,color:pal.sub}}>{t.weeklyGoal}</span><span style={{fontSize:10,color:gp.done>=gp.goal?pal.a1:pal.sub,fontWeight:700}}>{gp.done}/{gp.goal}{t.perWeek}</span></div>
-                                <div style={{height:3,borderRadius:2,background:"rgba(255,255,255,0.06)"}}><div style={{height:"100%",borderRadius:2,background:gp.done>=gp.goal?pal.a1:a.color,width:gp.pct+"%",transition:"width 0.4s"}}/></div>
-                              </div>}
-                            </div>
-                          );
-                        })}
+                        {catActs.map(a=>(
+                          <CheckinRow
+                            key={a.id}
+                            a={a}
+                            done={!!todayLog[a.id]?.done}
+                            streak={streaks[a.id]||{current:0,best:0}}
+                            pulse={pulseId===a.id}
+                            goalProgress={weekGoalProgress(a)}
+                            onToggle={()=>toggle(a.id)}
+                            onEdit={()=>setEditAct(a)}
+                            pal={pal}
+                            t={t}
+                          />
+                        ))}
                       </div>
                     </div>
                   );
