@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 // ── i18n ──────────────────────────────────────────────────────────────────────
 const TRANSLATIONS = {
@@ -8,15 +8,17 @@ const TRANSLATIONS = {
     today:"Today", yesterday:"Yesterday",
     checkin:"Check-in", stats:"Stats", habits:"Habits", share:"Share", settings:"Settings",
     todayHabits:"Today's Habits",
-    noHabitsYet:"No habits yet — add some in the Habits tab!",
+    noHabitsYet:"No habits yet",
+    noHabitsDesc:"Start tracking anything you want to do every day",
+    addFirstHabit:"+ Add your first habit",
     streak:"Streak", active:"Active", week:"Week",
-    restDay:"Rest Day", restDayDone:"✓ Rest Day",
-    streakFreeze:"🧊 Freeze", freezeUsed:"🧊 Used",
+    restDay:"Rest Day", restDayDone:"Rest Day ✓",
+    streakFreeze:"Freeze", freezeUsed:"Freeze used",
     freezeRefillIn:(d)=>`Refills in ${d}d`,
     freezeOnceMonth:"Once per month",
     forgotYesterday:"Forgot yesterday?",
     forgotYesterdayDesc:"Tap to log yesterday's habits",
-    done:"Done!", tap:"Tap",
+    done:"Done", tap:"Tap",
     weeklyGoal:"Weekly goal", bestStreak:"best",
     overallStreak:"Overall Streak", activeDays:"Active Days",
     completions:"Completions", bestDay:"Best Day",
@@ -25,26 +27,26 @@ const TRANSLATIONS = {
     monthlyActiveDays:"Monthly Active Days",
     habitStreaks:"Habit Streaks", heatmap:"Heatmap", tapCell:"tap cell",
     less:"Less", more:"More", rest:"Rest",
-    myHabits:"My Habits", swipeToDelete:"💡 Swipe left to delete",
+    myHabits:"My Habits", swipeToDelete:"Swipe left to delete",
     newHabitPlaceholder:"New habit name...",
     add:"Add", edit:"Edit",
-    streakReminders:"🔔 Streak Reminders",
+    streakReminders:"Streak Reminders",
     notifDesc:"Get notified at 8 PM if your streak is at risk.",
-    notifEnabled:"✓ Notifications enabled", enableNotif:"Enable Notifications",
+    notifEnabled:"Notifications enabled", enableNotif:"Enable Notifications",
     shareProgress:"Share Your Progress",
     shareDesc:"Generate a stats card and send it to friends!",
-    generateCard:"✨ Generate Stats Card",
-    download:"⬇️ Download", copy:"📋 Copy",
+    generateCard:"Generate Stats Card",
+    download:"Download", copy:"Copy",
     noGoal:"No goal", daysPerWeek:"Days/week", perWeek:"×/week", thisWeekCount:"this week",
     viewOnly:"View only", yesterdayLog:"Yesterday — you can still log this!",
-    markRestDay:"😴 Mark as Rest Day", restProtected:"✓ Rest Day (streak protected)",
+    markRestDay:"Mark as Rest Day", restProtected:"Rest Day (streak protected)",
     restDayNotApplicable:"Rest days apply to Sport habits only",
     addNote:"Add a note...", editHabit:"Edit Habit",
     icon:"Icon", color:"Color", cancel:"Cancel", save:"Save", deleteHabit:"Delete",
     deleteConfirmTitle:(n)=>`Delete "${n}"?`,
-    deleteConfirmBody:"This will permanently delete this habit and all its history. This cannot be undone.",
-    milestoneBang:(n)=>`${n}-Day Milestone!`, milestoneStreak:"streak", nice:"🎉 Nice!",
-    weeklyReview:"Weekly Review", continue:"Continue ⛓️",
+    deleteConfirmBody:"This will permanently delete this habit and all its history.",
+    milestoneBang:(n)=>`${n}-Day Milestone!`, milestoneStreak:"streak", nice:"Nice!",
+    weeklyReview:"Weekly Review", continue:"Continue",
     category:"Category",
     catSport:"Sport", catMind:"Mind", catHealth:"Health", catOther:"Other",
     catSportDesc:"Running, gym, cycling…",
@@ -53,7 +55,10 @@ const TRANSLATIONS = {
     catOtherDesc:"Any other habit",
     appearance:"Appearance", language:"Language", theme:"Theme", notifications:"Notifications",
     settingsTitle:"Settings",
-    next:"Next →", letsGo:"Let's go! 🚀", back:"Back",
+    soundFx:"Sound Effects", soundOn:"On", soundOff:"Off",
+    next:"Next →", letsGo:"Let's go!", back:"Back",
+    todayProgress:(d,t)=>`${d} of ${t} done`,
+    longPressHint:"Hold to edit",
     onboarding:[
       {emoji:"⛓️",title:"Welcome to Chainly",body:"Build daily habits, track streaks, and stay consistent. Works for sport, sleep, reading — anything you want to do every day."},
       {emoji:"✅",title:"Daily Check-in",body:"Every day, tap your habits to mark them done. Takes just 10 seconds, morning or evening."},
@@ -61,10 +66,10 @@ const TRANSLATIONS = {
       {emoji:"🔥",title:"Streaks & Protection",body:"Build streaks by completing habits daily. Use Rest Days (Sport only) or your monthly Streak Freeze to protect your chain when life gets in the way."},
       {emoji:"🏆",title:"Milestones & Goals",body:"Set weekly targets per habit, earn milestone badges at 7, 30, 100+ days, and share your stats card with friends."},
     ],
-    weeklyReviewMsg:["Keep showing up! 💪","Solid week, keep the chain going! ⛓️","Great consistency this week! 🔥","Outstanding week! You're on fire! 🚀","Perfect week! Absolutely crushing it! 🏆"],
-    shareText:(s,t,w)=>`⛓️ ${s} day streak on Chainly! ${t} active days 💪 #Chainly #HabitTracker`,
-    shareWa:(s,t,w)=>`⛓️ Chainly Stats\n🔥 ${s}d streak\n📅 ${t} active days\n📊 ${w}/7 this week`,
-    madeWith:"Made with Chainly ⛓️", habitStreaksCard:"Habit Streaks", last4weeks:"Last 4 Weeks",
+    weeklyReviewMsg:["Keep showing up! 💪","Solid week, keep the chain going!","Great consistency this week!","Outstanding week! You're on fire!","Perfect week! Absolutely crushing it!"],
+    shareText:(s,t,w)=>`${s} day streak on Chainly! ${t} active days #Chainly #HabitTracker`,
+    shareWa:(s,t,w)=>`Chainly Stats\n${s}d streak\n${t} active days\n${w}/7 this week`,
+    madeWith:"Made with Chainly", habitStreaksCard:"Habit Streaks", last4weeks:"Last 4 Weeks",
     copied:"Copied!", copyFail:"Please download instead.", days:(n)=>`${n}d`,
   },
   es: {
@@ -73,43 +78,45 @@ const TRANSLATIONS = {
     today:"Hoy", yesterday:"Ayer",
     checkin:"Registro", stats:"Estadísticas", habits:"Hábitos", share:"Compartir", settings:"Ajustes",
     todayHabits:"Hábitos de hoy",
-    noHabitsYet:"Aún no hay hábitos — ¡añade algunos en la pestaña Hábitos!",
-    streak:"Racha", active:"Días activos", week:"Semana",
-    restDay:"Día de descanso", restDayDone:"✓ Descanso",
-    streakFreeze:"🧊 Congelar", freezeUsed:"🧊 Usada",
+    noHabitsYet:"Sin hábitos aún",
+    noHabitsDesc:"Empieza a registrar cualquier cosa que quieras hacer cada día",
+    addFirstHabit:"+ Añade tu primer hábito",
+    streak:"Racha", active:"Activos", week:"Semana",
+    restDay:"Descanso", restDayDone:"Descanso ✓",
+    streakFreeze:"Congelar", freezeUsed:"Congelación usada",
     freezeRefillIn:(d)=>`Se renueva en ${d}d`,
     freezeOnceMonth:"Una vez al mes",
     forgotYesterday:"¿Olvidaste ayer?",
     forgotYesterdayDesc:"Toca para registrar los hábitos de ayer",
-    done:"¡Hecho!", tap:"Toca",
+    done:"Hecho", tap:"Toca",
     weeklyGoal:"Meta semanal", bestStreak:"mejor",
     overallStreak:"Racha actual", activeDays:"Días activos",
     completions:"Logros", bestDay:"Mejor día",
     longestStreak:"Racha más larga", bestWeek:"Mejor semana",
     thisWeek:"Esta semana", tapToView:"toca para ver",
     monthlyActiveDays:"Días activos por mes",
-    habitStreaks:"Rachas", heatmap:"Mapa de actividad", tapCell:"toca para ver",
+    habitStreaks:"Rachas", heatmap:"Actividad", tapCell:"toca para ver",
     less:"Menos", more:"Más", rest:"Descanso",
-    myHabits:"Mis hábitos", swipeToDelete:"💡 Desliza a la izquierda para eliminar",
+    myHabits:"Mis hábitos", swipeToDelete:"Desliza a la izquierda para eliminar",
     newHabitPlaceholder:"Nombre del nuevo hábito...",
     add:"Añadir", edit:"Editar",
-    streakReminders:"🔔 Recordatorios",
+    streakReminders:"Recordatorios",
     notifDesc:"Recibirás un aviso a las 20:00 si tu racha está en peligro.",
-    notifEnabled:"✓ Notificaciones activadas", enableNotif:"Activar notificaciones",
+    notifEnabled:"Notificaciones activadas", enableNotif:"Activar notificaciones",
     shareProgress:"Comparte tu progreso",
     shareDesc:"¡Genera una tarjeta de estadísticas y envíala a tus amigos!",
-    generateCard:"✨ Generar tarjeta",
-    download:"⬇️ Descargar", copy:"📋 Copiar",
+    generateCard:"Generar tarjeta",
+    download:"Descargar", copy:"Copiar",
     noGoal:"Sin meta", daysPerWeek:"Días/semana", perWeek:"×/sem", thisWeekCount:"esta semana",
     viewOnly:"Solo lectura", yesterdayLog:"Ayer — ¡aún puedes registrarlo!",
-    markRestDay:"😴 Marcar como descanso", restProtected:"✓ Descanso (racha protegida)",
-    restDayNotApplicable:"Los días de descanso son solo para hábitos de tipo Deporte",
+    markRestDay:"Marcar como descanso", restProtected:"Descanso (racha protegida)",
+    restDayNotApplicable:"Los días de descanso son solo para Deporte",
     addNote:"Añade una nota...", editHabit:"Editar hábito",
     icon:"Icono", color:"Color", cancel:"Cancelar", save:"Guardar", deleteHabit:"Eliminar",
     deleteConfirmTitle:(n)=>`¿Eliminar "${n}"?`,
-    deleteConfirmBody:"Esto eliminará permanentemente este hábito y todo su historial. Esta acción no se puede deshacer.",
-    milestoneBang:(n)=>`¡Hito de ${n} días!`, milestoneStreak:"racha", nice:"🎉 ¡Genial!",
-    weeklyReview:"Resumen semanal", continue:"Continuar ⛓️",
+    deleteConfirmBody:"Esto eliminará permanentemente este hábito y todo su historial.",
+    milestoneBang:(n)=>`¡Hito de ${n} días!`, milestoneStreak:"racha", nice:"¡Genial!",
+    weeklyReview:"Resumen semanal", continue:"Continuar",
     category:"Categoría",
     catSport:"Deporte", catMind:"Mente", catHealth:"Salud", catOther:"Otro",
     catSportDesc:"Correr, gimnasio, ciclismo…",
@@ -118,18 +125,21 @@ const TRANSLATIONS = {
     catOtherDesc:"Cualquier otro hábito",
     appearance:"Apariencia", language:"Idioma", theme:"Tema", notifications:"Notificaciones",
     settingsTitle:"Ajustes",
-    next:"Siguiente →", letsGo:"¡Vamos! 🚀", back:"Atrás",
+    soundFx:"Efectos de sonido", soundOn:"Activado", soundOff:"Desactivado",
+    next:"Siguiente →", letsGo:"¡Vamos!", back:"Atrás",
+    todayProgress:(d,t)=>`${d} de ${t} completados`,
+    longPressHint:"Mantén para editar",
     onboarding:[
       {emoji:"⛓️",title:"Bienvenido a Chainly",body:"Construye hábitos diarios, sigue tus rachas y mantén la constancia. Para deporte, sueño, lectura — lo que quieras hacer cada día."},
       {emoji:"✅",title:"Registro diario",body:"Cada día, toca tus hábitos para marcarlos como completados. Solo 10 segundos por la mañana o por la noche."},
-      {emoji:"🏷️",title:"Categorías de hábitos",body:"Al crear un hábito, elige su categoría: Deporte, Mente, Salud u Otro. Los hábitos de Deporte admiten Días de descanso para proteger tu racha en días de recuperación."},
-      {emoji:"🔥",title:"Rachas y protección",body:"Completa hábitos cada día para construir rachas. Usa los Días de descanso (solo Deporte) o la Congelación mensual para proteger tu cadena cuando la vida lo complica."},
+      {emoji:"🏷️",title:"Categorías de hábitos",body:"Al crear un hábito, elige su categoría: Deporte, Mente, Salud u Otro. Los hábitos de Deporte admiten Días de descanso para proteger tu racha."},
+      {emoji:"🔥",title:"Rachas y protección",body:"Completa hábitos cada día para construir rachas. Usa los Días de descanso (solo Deporte) o la Congelación mensual para proteger tu cadena."},
       {emoji:"🏆",title:"Hitos y metas",body:"Fija objetivos semanales por hábito, consigue insignias a los 7, 30, 100+ días y comparte tu tarjeta de estadísticas con amigos."},
     ],
-    weeklyReviewMsg:["¡Sigue apareciendo! 💪","¡Buena semana, mantén la cadena! ⛓️","¡Gran constancia esta semana! 🔥","¡Semana sobresaliente, estás en racha! 🚀","¡Semana perfecta, lo estás dando todo! 🏆"],
-    shareText:(s,t,w)=>`⛓️ ¡${s} días de racha en Chainly! ${t} días activos 💪 #Chainly`,
-    shareWa:(s,t,w)=>`⛓️ Chainly\n🔥 Racha de ${s}d\n📅 ${t} días activos\n📊 ${w}/7 esta semana`,
-    madeWith:"Hecho con Chainly ⛓️", habitStreaksCard:"Rachas", last4weeks:"Últimas 4 semanas",
+    weeklyReviewMsg:["¡Sigue apareciendo! 💪","¡Buena semana, mantén la cadena!","¡Gran constancia esta semana!","¡Semana sobresaliente, estás en racha!","¡Semana perfecta, lo estás dando todo!"],
+    shareText:(s,t,w)=>`¡${s} días de racha en Chainly! ${t} días activos #Chainly`,
+    shareWa:(s,t,w)=>`Chainly\nRacha de ${s}d\n${t} días activos\n${w}/7 esta semana`,
+    madeWith:"Hecho con Chainly", habitStreaksCard:"Rachas", last4weeks:"Últimas 4 semanas",
     copied:"¡Copiado!", copyFail:"Por favor, descarga la imagen.", days:(n)=>`${n}d`,
   },
   zh: {
@@ -138,15 +148,17 @@ const TRANSLATIONS = {
     today:"今天", yesterday:"昨天",
     checkin:"打卡", stats:"统计", habits:"习惯", share:"分享", settings:"设置",
     todayHabits:"今日习惯",
-    noHabitsYet:"还没有习惯 — 在「习惯」标签页添加吧！",
-    streak:"连续", active:"活跃天", week:"本周",
-    restDay:"休息日", restDayDone:"✓ 休息日",
-    streakFreeze:"🧊 保护", freezeUsed:"🧊 已用",
+    noHabitsYet:"还没有习惯",
+    noHabitsDesc:"开始追踪任何你想每天坚持的事",
+    addFirstHabit:"+ 添加第一个习惯",
+    streak:"连续", active:"活跃", week:"本周",
+    restDay:"休息日", restDayDone:"休息日 ✓",
+    streakFreeze:"保护", freezeUsed:"保护已用",
     freezeRefillIn:(d)=>`${d}天后刷新`,
     freezeOnceMonth:"每月一次",
     forgotYesterday:"昨天忘记打卡了？",
     forgotYesterdayDesc:"点击补录昨天的习惯",
-    done:"已完成！", tap:"点击",
+    done:"已完成", tap:"点击",
     weeklyGoal:"每周目标", bestStreak:"最长",
     overallStreak:"当前连续", activeDays:"活跃天数",
     completions:"完成次数", bestDay:"最佳日",
@@ -155,26 +167,26 @@ const TRANSLATIONS = {
     monthlyActiveDays:"每月活跃天数",
     habitStreaks:"习惯连续", heatmap:"热力图", tapCell:"点击查看",
     less:"少", more:"多", rest:"休息",
-    myHabits:"我的习惯", swipeToDelete:"💡 向左滑动删除",
+    myHabits:"我的习惯", swipeToDelete:"向左滑动删除",
     newHabitPlaceholder:"输入新习惯名称…",
     add:"添加", edit:"编辑",
-    streakReminders:"🔔 连续提醒",
+    streakReminders:"连续提醒",
     notifDesc:"若当天尚未打卡且有连续记录，晚上8点将收到提醒。",
-    notifEnabled:"✓ 通知已开启", enableNotif:"开启通知",
+    notifEnabled:"通知已开启", enableNotif:"开启通知",
     shareProgress:"分享你的进度",
     shareDesc:"生成统计卡片，发送给朋友！",
-    generateCard:"✨ 生成统计卡片",
-    download:"⬇️ 下载", copy:"📋 复制",
+    generateCard:"生成统计卡片",
+    download:"下载", copy:"复制",
     noGoal:"不设目标", daysPerWeek:"次/周", perWeek:"次/周", thisWeekCount:"本周",
     viewOnly:"仅查看", yesterdayLog:"昨天 — 现在还可以补录！",
-    markRestDay:"😴 标记为休息日", restProtected:"✓ 休息日（连续受保护）",
+    markRestDay:"标记为休息日", restProtected:"休息日（连续受保护）",
     restDayNotApplicable:"休息日仅适用于运动类习惯",
     addNote:"添加备注…", editHabit:"编辑习惯",
     icon:"图标", color:"颜色", cancel:"取消", save:"保存", deleteHabit:"删除",
     deleteConfirmTitle:(n)=>`删除「${n}」？`,
-    deleteConfirmBody:"这将永久删除该习惯及其所有历史记录，且无法恢复。",
-    milestoneBang:(n)=>`${n}天里程碑！`, milestoneStreak:"连续", nice:"🎉 太棒了！",
-    weeklyReview:"每周回顾", continue:"继续 ⛓️",
+    deleteConfirmBody:"这将永久删除该习惯及其所有历史记录。",
+    milestoneBang:(n)=>`${n}天里程碑！`, milestoneStreak:"连续", nice:"太棒了！",
+    weeklyReview:"每周回顾", continue:"继续",
     category:"类别",
     catSport:"运动", catMind:"思维", catHealth:"健康", catOther:"其他",
     catSportDesc:"跑步、健身、骑行…",
@@ -183,7 +195,10 @@ const TRANSLATIONS = {
     catOtherDesc:"任何其他习惯",
     appearance:"外观", language:"语言", theme:"主题", notifications:"通知",
     settingsTitle:"设置",
-    next:"下一步 →", letsGo:"开始吧！🚀", back:"返回",
+    soundFx:"音效", soundOn:"开启", soundOff:"关闭",
+    next:"下一步 →", letsGo:"开始吧！", back:"返回",
+    todayProgress:(d,t)=>`今日 ${d}/${t}`,
+    longPressHint:"长按编辑",
     onboarding:[
       {emoji:"⛓️",title:"欢迎使用 Chainly",body:"建立每日习惯，追踪连续记录，保持自律。运动、睡眠、阅读，任何你想每天坚持的事都适用。"},
       {emoji:"✅",title:"每日打卡",body:"每天点击习惯即可标记完成。早晨或睡前只需10秒钟。"},
@@ -191,10 +206,10 @@ const TRANSLATIONS = {
       {emoji:"🔥",title:"连续记录与保护",body:"每天完成习惯以积累连续天数。善用休息日（仅限运动类）或每月连续保护，让意外不打断你的链条。"},
       {emoji:"🏆",title:"里程碑与目标",body:"为每个习惯设置每周目标，达成7天、30天、100天里程碑解锁徽章，并与朋友分享你的统计卡片。"},
     ],
-    weeklyReviewMsg:["继续坚持！💪","不错的一周，保持连续！⛓️","本周表现很稳定！🔥","出色的一周，你状态火热！🚀","完美的一周，你太厉害了！🏆"],
-    shareText:(s,t,w)=>`⛓️ 在 Chainly 上连续 ${s} 天！活跃 ${t} 天 💪 #Chainly`,
-    shareWa:(s,t,w)=>`⛓️ Chainly\n🔥 连续 ${s} 天\n📅 活跃 ${t} 天\n📊 本周 ${w}/7`,
-    madeWith:"由 Chainly ⛓️ 制作", habitStreaksCard:"习惯连续", last4weeks:"近4周",
+    weeklyReviewMsg:["继续坚持！💪","不错的一周，保持连续！","本周表现很稳定！","出色的一周，你状态火热！","完美的一周，你太厉害了！"],
+    shareText:(s,t,w)=>`在 Chainly 上连续 ${s} 天！活跃 ${t} 天 #Chainly`,
+    shareWa:(s,t,w)=>`Chainly\n连续 ${s} 天\n活跃 ${t} 天\n本周 ${w}/7`,
+    madeWith:"由 Chainly 制作", habitStreaksCard:"习惯连续", last4weeks:"近4周",
     copied:"已复制！", copyFail:"请下载图片。", days:(n)=>`${n}天`,
   },
   ar: {
@@ -203,15 +218,17 @@ const TRANSLATIONS = {
     today:"اليوم", yesterday:"أمس",
     checkin:"تسجيل", stats:"إحصائيات", habits:"العادات", share:"مشاركة", settings:"الإعدادات",
     todayHabits:"عادات اليوم",
-    noHabitsYet:"لا توجد عادات بعد — أضف بعضها من تبويب العادات!",
-    streak:"السلسلة", active:"أيام نشطة", week:"الأسبوع",
-    restDay:"يوم راحة", restDayDone:"✓ راحة",
-    streakFreeze:"🧊 تجميد", freezeUsed:"🧊 مُستخدَم",
+    noHabitsYet:"لا توجد عادات بعد",
+    noHabitsDesc:"ابدأ بتتبع أي شيء تريد فعله كل يوم",
+    addFirstHabit:"+ أضف أول عادة",
+    streak:"السلسلة", active:"نشط", week:"الأسبوع",
+    restDay:"يوم راحة", restDayDone:"راحة ✓",
+    streakFreeze:"تجميد", freezeUsed:"التجميد مُستخدَم",
     freezeRefillIn:(d)=>`يُجدَّد بعد ${d} أيام`,
     freezeOnceMonth:"مرة واحدة شهرياً",
     forgotYesterday:"نسيت أمس؟",
     forgotYesterdayDesc:"اضغط لتسجيل عادات أمس",
-    done:"تم!", tap:"اضغط",
+    done:"تم", tap:"اضغط",
     weeklyGoal:"الهدف الأسبوعي", bestStreak:"الأفضل",
     overallStreak:"السلسلة الحالية", activeDays:"الأيام النشطة",
     completions:"مرات الإنجاز", bestDay:"أفضل يوم",
@@ -220,26 +237,26 @@ const TRANSLATIONS = {
     monthlyActiveDays:"الأيام النشطة شهرياً",
     habitStreaks:"سلاسل العادات", heatmap:"خريطة النشاط", tapCell:"اضغط للعرض",
     less:"أقل", more:"أكثر", rest:"راحة",
-    myHabits:"عاداتي", swipeToDelete:"💡 اسحب يساراً للحذف",
+    myHabits:"عاداتي", swipeToDelete:"اسحب يساراً للحذف",
     newHabitPlaceholder:"اسم العادة الجديدة...",
     add:"إضافة", edit:"تعديل",
-    streakReminders:"🔔 تذكيرات السلسلة",
+    streakReminders:"تذكيرات السلسلة",
     notifDesc:"ستصلك إشعار الساعة 8 مساءً إذا كانت سلسلتك في خطر.",
-    notifEnabled:"✓ الإشعارات مفعّلة", enableNotif:"تفعيل الإشعارات",
+    notifEnabled:"الإشعارات مفعّلة", enableNotif:"تفعيل الإشعارات",
     shareProgress:"شارك تقدّمك",
     shareDesc:"أنشئ بطاقة إحصائيات وأرسلها لأصدقائك!",
-    generateCard:"✨ إنشاء البطاقة",
-    download:"⬇️ تنزيل", copy:"📋 نسخ",
+    generateCard:"إنشاء البطاقة",
+    download:"تنزيل", copy:"نسخ",
     noGoal:"بدون هدف", daysPerWeek:"أيام/أسبوع", perWeek:"×/أسبوع", thisWeekCount:"هذا الأسبوع",
     viewOnly:"للعرض فقط", yesterdayLog:"أمس — لا يزال بإمكانك التسجيل!",
-    markRestDay:"😴 تحديد كيوم راحة", restProtected:"✓ يوم راحة (السلسلة محمية)",
-    restDayNotApplicable:"أيام الراحة مخصصة لعادات الرياضة فقط",
+    markRestDay:"تحديد كيوم راحة", restProtected:"يوم راحة (السلسلة محمية)",
+    restDayNotApplicable:"أيام الراحة للرياضة فقط",
     addNote:"أضف ملاحظة...", editHabit:"تعديل العادة",
     icon:"الأيقونة", color:"اللون", cancel:"إلغاء", save:"حفظ", deleteHabit:"حذف",
     deleteConfirmTitle:(n)=>`حذف "${n}"؟`,
     deleteConfirmBody:"سيؤدي هذا إلى حذف هذه العادة وكامل سجلّها بشكل دائم.",
-    milestoneBang:(n)=>`إنجاز ${n} يوم!`, milestoneStreak:"سلسلة", nice:"🎉 رائع!",
-    weeklyReview:"المراجعة الأسبوعية", continue:"متابعة ⛓️",
+    milestoneBang:(n)=>`إنجاز ${n} يوم!`, milestoneStreak:"سلسلة", nice:"رائع!",
+    weeklyReview:"المراجعة الأسبوعية", continue:"متابعة",
     category:"الفئة",
     catSport:"رياضة", catMind:"ذهن", catHealth:"صحة", catOther:"أخرى",
     catSportDesc:"جري، رياضة، ركوب دراجة…",
@@ -248,18 +265,21 @@ const TRANSLATIONS = {
     catOtherDesc:"أي عادة أخرى",
     appearance:"المظهر", language:"اللغة", theme:"السمة", notifications:"الإشعارات",
     settingsTitle:"الإعدادات",
-    next:"التالي →", letsGo:"هيّا نبدأ! 🚀", back:"رجوع",
+    soundFx:"المؤثرات الصوتية", soundOn:"مفعّل", soundOff:"معطّل",
+    next:"التالي →", letsGo:"هيّا نبدأ!", back:"رجوع",
+    todayProgress:(d,t)=>`${d} من ${t} اليوم`,
+    longPressHint:"اضغط مطولاً للتعديل",
     onboarding:[
       {emoji:"⛓️",title:"مرحباً بك في Chainly",body:"كوّن عادات يومية، تابع سلاسلك، وحافظ على انتظامك. للرياضة، النوم، القراءة — أي شيء تريد فعله كل يوم."},
       {emoji:"✅",title:"التسجيل اليومي",body:"كل يوم، اضغط على عاداتك لتسجيلها كمنجزة. عشر ثوانٍ في الصباح أو المساء تكفي."},
-      {emoji:"🏷️",title:"تصنيف العادات",body:"عند إنشاء عادة، اختر فئتها: رياضة، ذهن، صحة، أو أخرى. عادات الرياضة تدعم أيام الراحة لحماية سلسلتك أثناء التعافي."},
-      {emoji:"🔥",title:"السلاسل والحماية",body:"أكمل عاداتك يومياً لبناء سلاسل متواصلة. استخدم أيام الراحة (للرياضة فقط) أو التجميد الشهري لحماية سلسلتك عند الحاجة."},
-      {emoji:"🏆",title:"الإنجازات والأهداف",body:"حدد أهدافاً أسبوعية لكل عادة، واحصل على شارات عند 7 و30 و100+ يوم، وشارك بطاقة إحصائياتك مع الأصدقاء."},
+      {emoji:"🏷️",title:"تصنيف العادات",body:"عند إنشاء عادة، اختر فئتها: رياضة، ذهن، صحة، أو أخرى. عادات الرياضة تدعم أيام الراحة لحماية سلسلتك."},
+      {emoji:"🔥",title:"السلاسل والحماية",body:"أكمل عاداتك يومياً لبناء سلاسل متواصلة. استخدم أيام الراحة أو التجميد الشهري لحماية سلسلتك."},
+      {emoji:"🏆",title:"الإنجازات والأهداف",body:"حدد أهدافاً أسبوعية لكل عادة، واحصل على شارات عند 7 و30 و100+ يوم، وشارك بطاقة إحصائياتك."},
     ],
-    weeklyReviewMsg:["استمر في الحضور! 💪","أسبوع جيد، واصل السلسلة! ⛓️","ثبات رائع هذا الأسبوع! 🔥","أسبوع متميز، أنت في حالة ممتازة! 🚀","أسبوع مثالي، أنت تتفوق على نفسك! 🏆"],
-    shareText:(s,t,w)=>`⛓️ ${s} يوم متواصل على Chainly! ${t} يوم نشط 💪 #Chainly`,
-    shareWa:(s,t,w)=>`⛓️ Chainly\n🔥 سلسلة ${s} يوم\n📅 ${t} يوم نشط\n📊 ${w}/7 هذا الأسبوع`,
-    madeWith:"صُنع بواسطة Chainly ⛓️", habitStreaksCard:"سلاسل العادات", last4weeks:"آخر 4 أسابيع",
+    weeklyReviewMsg:["استمر في الحضور! 💪","أسبوع جيد، واصل السلسلة!","ثبات رائع هذا الأسبوع!","أسبوع متميز، أنت في حالة ممتازة!","أسبوع مثالي، أنت تتفوق على نفسك!"],
+    shareText:(s,t,w)=>`${s} يوم متواصل على Chainly! ${t} يوم نشط #Chainly`,
+    shareWa:(s,t,w)=>`Chainly\nسلسلة ${s} يوم\n${t} يوم نشط\n${w}/7 هذا الأسبوع`,
+    madeWith:"صُنع بواسطة Chainly", habitStreaksCard:"سلاسل العادات", last4weeks:"آخر 4 أسابيع",
     copied:"تم النسخ!", copyFail:"يرجى التنزيل بدلاً من ذلك.", days:(n)=>`${n}ي`,
   },
   pt: {
@@ -268,43 +288,45 @@ const TRANSLATIONS = {
     today:"Hoje", yesterday:"Ontem",
     checkin:"Registro", stats:"Estatísticas", habits:"Hábitos", share:"Compartilhar", settings:"Configurações",
     todayHabits:"Hábitos de hoje",
-    noHabitsYet:"Nenhum hábito ainda — adicione alguns na aba Hábitos!",
-    streak:"Sequência", active:"Dias ativos", week:"Semana",
-    restDay:"Dia de descanso", restDayDone:"✓ Descanso",
-    streakFreeze:"🧊 Congelar", freezeUsed:"🧊 Usado",
+    noHabitsYet:"Nenhum hábito ainda",
+    noHabitsDesc:"Comece a rastrear qualquer coisa que queira fazer todo dia",
+    addFirstHabit:"+ Adicionar primeiro hábito",
+    streak:"Sequência", active:"Ativos", week:"Semana",
+    restDay:"Descanso", restDayDone:"Descanso ✓",
+    streakFreeze:"Congelar", freezeUsed:"Congelamento usado",
     freezeRefillIn:(d)=>`Renova em ${d}d`,
     freezeOnceMonth:"Uma vez por mês",
     forgotYesterday:"Esqueceu ontem?",
     forgotYesterdayDesc:"Toque para registrar os hábitos de ontem",
-    done:"Feito!", tap:"Toque",
+    done:"Feito", tap:"Toque",
     weeklyGoal:"Meta semanal", bestStreak:"melhor",
     overallStreak:"Sequência atual", activeDays:"Dias ativos",
     completions:"Conclusões", bestDay:"Melhor dia",
     longestStreak:"Maior sequência", bestWeek:"Melhor semana",
     thisWeek:"Esta semana", tapToView:"toque para ver",
     monthlyActiveDays:"Dias ativos por mês",
-    habitStreaks:"Sequências", heatmap:"Mapa de atividade", tapCell:"toque para ver",
+    habitStreaks:"Sequências", heatmap:"Atividade", tapCell:"toque para ver",
     less:"Menos", more:"Mais", rest:"Descanso",
-    myHabits:"Meus hábitos", swipeToDelete:"💡 Deslize para a esquerda para excluir",
+    myHabits:"Meus hábitos", swipeToDelete:"Deslize para a esquerda para excluir",
     newHabitPlaceholder:"Nome do novo hábito...",
     add:"Adicionar", edit:"Editar",
-    streakReminders:"🔔 Lembretes",
+    streakReminders:"Lembretes",
     notifDesc:"Receba uma notificação às 20h se sua sequência estiver em risco.",
-    notifEnabled:"✓ Notificações ativadas", enableNotif:"Ativar notificações",
+    notifEnabled:"Notificações ativadas", enableNotif:"Ativar notificações",
     shareProgress:"Compartilhe seu progresso",
     shareDesc:"Gere um cartão de estatísticas e envie para seus amigos!",
-    generateCard:"✨ Gerar cartão",
-    download:"⬇️ Baixar", copy:"📋 Copiar",
+    generateCard:"Gerar cartão",
+    download:"Baixar", copy:"Copiar",
     noGoal:"Sem meta", daysPerWeek:"Dias/semana", perWeek:"×/sem", thisWeekCount:"esta semana",
     viewOnly:"Somente leitura", yesterdayLog:"Ontem — você ainda pode registrar!",
-    markRestDay:"😴 Marcar como descanso", restProtected:"✓ Descanso (sequência protegida)",
-    restDayNotApplicable:"Dias de descanso são apenas para hábitos de Esporte",
+    markRestDay:"Marcar como descanso", restProtected:"Descanso (sequência protegida)",
+    restDayNotApplicable:"Dias de descanso são apenas para Esporte",
     addNote:"Adicione uma nota...", editHabit:"Editar hábito",
     icon:"Ícone", color:"Cor", cancel:"Cancelar", save:"Salvar", deleteHabit:"Excluir",
     deleteConfirmTitle:(n)=>`Excluir "${n}"?`,
-    deleteConfirmBody:"Isso removerá permanentemente este hábito e todo o seu histórico. Essa ação não pode ser desfeita.",
-    milestoneBang:(n)=>`Marco de ${n} dias!`, milestoneStreak:"sequência", nice:"🎉 Incrível!",
-    weeklyReview:"Revisão semanal", continue:"Continuar ⛓️",
+    deleteConfirmBody:"Isso removerá permanentemente este hábito e todo o seu histórico.",
+    milestoneBang:(n)=>`Marco de ${n} dias!`, milestoneStreak:"sequência", nice:"Incrível!",
+    weeklyReview:"Revisão semanal", continue:"Continuar",
     category:"Categoria",
     catSport:"Esporte", catMind:"Mente", catHealth:"Saúde", catOther:"Outro",
     catSportDesc:"Corrida, academia, ciclismo…",
@@ -313,18 +335,21 @@ const TRANSLATIONS = {
     catOtherDesc:"Qualquer outro hábito",
     appearance:"Aparência", language:"Idioma", theme:"Tema", notifications:"Notificações",
     settingsTitle:"Configurações",
-    next:"Próximo →", letsGo:"Vamos lá! 🚀", back:"Voltar",
+    soundFx:"Efeitos sonoros", soundOn:"Ativado", soundOff:"Desativado",
+    next:"Próximo →", letsGo:"Vamos lá!", back:"Voltar",
+    todayProgress:(d,t)=>`${d} de ${t} hoje`,
+    longPressHint:"Segure para editar",
     onboarding:[
       {emoji:"⛓️",title:"Bem-vindo ao Chainly",body:"Construa hábitos diários, acompanhe sequências e mantenha a consistência. Para esporte, sono, leitura — qualquer coisa que queira fazer todo dia."},
       {emoji:"✅",title:"Registro diário",body:"Todo dia, toque nos seus hábitos para marcá-los como concluídos. Leva apenas 10 segundos, de manhã ou à noite."},
-      {emoji:"🏷️",title:"Categorias de hábitos",body:"Ao criar um hábito, escolha sua categoria: Esporte, Mente, Saúde ou Outro. Hábitos de Esporte suportam Dias de descanso para proteger sua sequência nos dias de recuperação."},
-      {emoji:"🔥",title:"Sequências e proteção",body:"Complete hábitos diariamente para construir sequências. Use Dias de descanso (Esporte) ou o Congelamento mensal para proteger sua corrente quando a vida complicar."},
-      {emoji:"🏆",title:"Marcos e metas",body:"Defina metas semanais por hábito, conquiste medalhas aos 7, 30, 100+ dias e compartilhe seu cartão de estatísticas com amigos."},
+      {emoji:"🏷️",title:"Categorias de hábitos",body:"Ao criar um hábito, escolha sua categoria: Esporte, Mente, Saúde ou Outro. Hábitos de Esporte suportam Dias de descanso."},
+      {emoji:"🔥",title:"Sequências e proteção",body:"Complete hábitos diariamente para construir sequências. Use Dias de descanso ou o Congelamento mensal para proteger sua corrente."},
+      {emoji:"🏆",title:"Marcos e metas",body:"Defina metas semanais por hábito, conquiste medalhas aos 7, 30, 100+ dias e compartilhe seu cartão de estatísticas."},
     ],
-    weeklyReviewMsg:["Continue aparecendo! 💪","Boa semana, mantenha a corrente! ⛓️","Ótima consistência essa semana! 🔥","Semana excepcional, você está pegando fogo! 🚀","Semana perfeita, você está arrasando! 🏆"],
-    shareText:(s,t,w)=>`⛓️ ${s} dias seguidos no Chainly! ${t} dias ativos 💪 #Chainly`,
-    shareWa:(s,t,w)=>`⛓️ Chainly\n🔥 ${s}d sequência\n📅 ${t} dias ativos\n📊 ${w}/7 esta semana`,
-    madeWith:"Feito com Chainly ⛓️", habitStreaksCard:"Sequências", last4weeks:"Últimas 4 semanas",
+    weeklyReviewMsg:["Continue aparecendo! 💪","Boa semana, mantenha a corrente!","Ótima consistência essa semana!","Semana excepcional, você está pegando fogo!","Semana perfeita, você está arrasando!"],
+    shareText:(s,t,w)=>`${s} dias seguidos no Chainly! ${t} dias ativos #Chainly`,
+    shareWa:(s,t,w)=>`Chainly\n${s}d sequência\n${t} dias ativos\n${w}/7 esta semana`,
+    madeWith:"Feito com Chainly", habitStreaksCard:"Sequências", last4weeks:"Últimas 4 semanas",
     copied:"Copiado!", copyFail:"Por favor, faça o download.", days:(n)=>`${n}d`,
   },
 };
@@ -356,50 +381,43 @@ function migrateLog(log){const m={};Object.keys(log).forEach(dk=>{m[dk]={};Objec
 function detectLang(){const l=(navigator.language||"en").slice(0,2).toLowerCase();return TRANSLATIONS[l]?l:"en";}
 function daysUntilNextMonth(){const n=new Date(),nm=new Date(n.getFullYear(),n.getMonth()+1,1);return Math.ceil((nm-n)/86400000);}
 
-// ── 🔊 Sound: subtle tick using Web Audio API ─────────────────────────────────
-function playCheckSound(isDone) {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    if (isDone) {
-      // Pleasant rising "tick" when marking done
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(520, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.06);
-      gain.gain.setValueAtTime(0.12, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.15);
+// ── Sound ─────────────────────────────────────────────────────────────────────
+function playCheckSound(isDone){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const osc=ctx.createOscillator(),gain=ctx.createGain();
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.type="sine";
+    if(isDone){
+      osc.frequency.setValueAtTime(520,ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880,ctx.currentTime+0.06);
+      gain.gain.setValueAtTime(0.11,ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.14);
+      osc.start(ctx.currentTime);osc.stop(ctx.currentTime+0.15);
     } else {
-      // Soft falling "untick"
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(600, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(380, ctx.currentTime + 0.08);
-      gain.gain.setValueAtTime(0.07, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.13);
+      osc.frequency.setValueAtTime(600,ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(380,ctx.currentTime+0.08);
+      gain.gain.setValueAtTime(0.06,ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.12);
+      osc.start(ctx.currentTime);osc.stop(ctx.currentTime+0.13);
     }
-  } catch(e) {}
+  }catch(e){}
 }
 
-// ── groupByCategory helper ────────────────────────────────────────────────────
-function groupByCategory(activities) {
-  const groups = {};
-  CATEGORIES.forEach(c => { groups[c] = []; });
-  activities.forEach(a => {
-    const cat = a.category || "other";
-    if (!groups[cat]) groups[cat] = [];
-    groups[cat].push(a);
-  });
-  return groups;
+// ── Long-press hook ───────────────────────────────────────────────────────────
+function useLongPress(callback, ms=520){
+  const timer=useRef(null);
+  const fired=useRef(false);
+  const start=useCallback(()=>{fired.current=false;timer.current=setTimeout(()=>{fired.current=true;haptic("heavy");callback();},ms);},[callback,ms]);
+  const cancel=useCallback(()=>{if(timer.current){clearTimeout(timer.current);timer.current=null;}},[]);
+  return {onMouseDown:start,onMouseUp:cancel,onMouseLeave:cancel,onTouchStart:start,onTouchEnd:cancel,onTouchCancel:cancel,didFire:()=>fired.current};
+}
+
+// ── Group by category ─────────────────────────────────────────────────────────
+function groupByCategory(activities){
+  const g={};CATEGORIES.forEach(c=>{g[c]=[];});
+  activities.forEach(a=>{const c=a.category||"other";if(!g[c])g[c]=[];g[c].push(a);});
+  return g;
 }
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
@@ -422,20 +440,23 @@ function SlideModal({onClose,children,pal,fullscreen=false}){
   );
 }
 
-// ── Onboarding ────────────────────────────────────────────────────────────────
-function Onboarding({onDone,pal,t}){
+// ── Onboarding — uses system language directly ────────────────────────────────
+function Onboarding({onDone,pal}){
   const [step,setStep]=useState(0);
+  // Always use system language for onboarding, regardless of app lang state
+  const systemLang=detectLang();
+  const t=TRANSLATIONS[systemLang]||TRANSLATIONS.en;
   const s=t.onboarding[step],tx=pal.text||"#fff";
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-      <div style={{background:pal.bg1,border:`1px solid ${pal.border}`,borderRadius:24,padding:36,maxWidth:380,width:"100%",textAlign:"center"}}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{background:pal.bg1,border:`1px solid ${pal.border}`,borderRadius:24,padding:"32px 28px",maxWidth:380,width:"100%",textAlign:"center"}}>
         <div style={{fontSize:52,marginBottom:14}}>{s.emoji}</div>
         <div style={{fontSize:19,fontWeight:800,color:tx,marginBottom:10}}>{s.title}</div>
         <div style={{fontSize:14,color:pal.sub,lineHeight:1.65,marginBottom:28}}>{s.body}</div>
         <div style={{display:"flex",gap:6,justifyContent:"center",marginBottom:24}}>{t.onboarding.map((_,i)=><div key={i} style={{width:i===step?22:7,height:7,borderRadius:4,background:i===step?pal.a1:pal.muted,transition:"all 0.3s"}}/>)}</div>
         <div style={{display:"flex",gap:10}}>
-          {step>0&&<button onClick={()=>setStep(s=>s-1)} style={{flex:1,padding:"11px",borderRadius:12,background:"transparent",border:`1px solid ${pal.border}`,color:tx,fontWeight:600,cursor:"pointer"}}>{t.back}</button>}
-          <button onClick={()=>step<t.onboarding.length-1?setStep(s=>s+1):onDone()} style={{flex:2,padding:"11px",borderRadius:12,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:15}}>{step<t.onboarding.length-1?t.next:t.letsGo}</button>
+          {step>0&&<button onClick={()=>setStep(s=>s-1)} style={{flex:1,minHeight:48,borderRadius:14,background:"transparent",border:`1px solid ${pal.border}`,color:tx,fontWeight:600,cursor:"pointer",fontSize:15}}>{t.back}</button>}
+          <button onClick={()=>step<t.onboarding.length-1?setStep(s=>s+1):onDone()} style={{flex:2,minHeight:48,borderRadius:14,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:15}}>{step<t.onboarding.length-1?t.next:t.letsGo}</button>
         </div>
       </div>
     </div>
@@ -450,8 +471,8 @@ function MilestoneToast({milestone,actName,onClose,pal,t}){
       <style>{`@keyframes toastIn{from{transform:translateX(-50%) translateY(-40px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}`}</style>
       <div style={{fontSize:32,marginBottom:4}}>🏆</div>
       <div style={{fontWeight:800,color:pal.text||"#fff",fontSize:15}}>{t.milestoneBang(milestone)}</div>
-      <div style={{color:pal.sub,fontSize:12,marginTop:3}}>{actName} {t.milestoneStreak}</div>
-      <button onClick={onClose} style={{marginTop:10,padding:"5px 16px",borderRadius:10,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>{t.nice}</button>
+      <div style={{color:pal.sub,fontSize:12,marginTop:3}}>{actName} — {t.milestoneStreak}</div>
+      <button onClick={onClose} style={{marginTop:10,padding:"8px 20px",borderRadius:10,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>{t.nice}</button>
     </div>
   );
 }
@@ -474,7 +495,7 @@ function WeeklyReview({log,activities,streaks,onClose,pal,t}){
         ))}
       </div>
       <div style={{background:pal.a1+"22",border:`1px solid ${pal.a1}55`,borderRadius:14,padding:14,textAlign:"center",marginBottom:18,color:pal.a1,fontWeight:700,fontSize:14}}>{msg}</div>
-      <button onClick={onClose} style={{width:"100%",padding:"12px",borderRadius:12,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:15}}>{t.continue}</button>
+      <button onClick={onClose} style={{width:"100%",minHeight:48,borderRadius:14,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:15}}>{t.continue}</button>
     </div>
   );
 }
@@ -492,33 +513,33 @@ function DayModal({dateKey,activities,log,onClose,onToggle,onNote,onRestDay,pal,
     <SlideModal onClose={onClose} pal={pal} fullscreen>
       {close=>(
         <div style={{color:tx}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
             <div style={{flex:1,minWidth:0,paddingRight:10}}>
               <div style={{fontWeight:800,fontSize:15,wordBreak:"break-word"}}>{d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</div>
               <div style={{fontSize:12,color:isToday?pal.a1:isYesterday?"#f59e0b":pal.muted,fontWeight:600,marginTop:2}}>{isToday?t.today:isYesterday?t.yesterdayLog:t.viewOnly}</div>
             </div>
-            <button onClick={close} style={{background:"transparent",border:"none",color:pal.sub,fontSize:22,cursor:"pointer",flexShrink:0}}>✕</button>
+            <button onClick={close} style={{background:"transparent",border:"none",color:pal.sub,fontSize:22,cursor:"pointer",flexShrink:0,minWidth:40,minHeight:40}}>✕</button>
           </div>
           {canEdit&&(hasSport
-            ?<button onClick={()=>onRestDay(dateKey)} style={{width:"100%",marginBottom:12,padding:"10px",borderRadius:12,background:isRest?pal.a1+"33":"rgba(255,255,255,0.04)",border:`1px solid ${isRest?pal.a1:pal.border}`,color:isRest?pal.a1:pal.sub,fontWeight:700,cursor:"pointer",fontSize:13}}>{isRest?t.restProtected:t.markRestDay}</button>
-            :<div style={{marginBottom:12,padding:"9px 14px",borderRadius:12,background:"rgba(255,255,255,0.03)",border:`1px solid ${pal.border}`,fontSize:12,color:pal.muted,textAlign:"center"}}>{t.restDayNotApplicable}</div>
+            ?<button onClick={()=>onRestDay(dateKey)} style={{width:"100%",marginBottom:12,minHeight:44,padding:"10px",borderRadius:12,background:isRest?pal.a1+"33":"rgba(255,255,255,0.04)",border:`1px solid ${isRest?pal.a1:pal.border}`,color:isRest?pal.a1:pal.sub,fontWeight:700,cursor:"pointer",fontSize:13}}>{isRest?t.restProtected:t.markRestDay}</button>
+            :null
           )}
           {CATEGORIES.map(cat=>{
-            const catActivities=groups[cat]||[];
-            if(catActivities.length===0)return null;
+            const catActs=groups[cat]||[];
+            if(catActs.length===0)return null;
             return(
-              <div key={cat}>
-                <div style={{fontSize:11,fontWeight:700,color:pal.muted,textTransform:"uppercase",letterSpacing:"0.06em",margin:"10px 0 7px",display:"flex",alignItems:"center",gap:5}}>
+              <div key={cat} style={{marginBottom:6}}>
+                <div style={{fontSize:11,fontWeight:700,color:pal.muted,textTransform:"uppercase",letterSpacing:"0.06em",margin:"12px 0 6px",display:"flex",alignItems:"center",gap:5,paddingBottom:5,borderBottom:`1px solid ${pal.border}`}}>
                   <span>{CAT_ICONS[cat]}</span>
-                  <span>{({sport:t.catSport,mind:t.catMind,health:t.catHealth,other:t.catOther})[cat]}</span>
+                  <span>{{sport:t.catSport,mind:t.catMind,health:t.catHealth,other:t.catOther}[cat]}</span>
                 </div>
-                {catActivities.map(a=>{
+                {catActs.map(a=>{
                   const e=entry[a.id]||{};
                   return(
                     <div key={a.id} style={{marginBottom:10}}>
-                      <div onClick={()=>canEdit&&onToggle(a.id,dateKey)} style={{display:"flex",alignItems:"center",gap:11,padding:"11px 13px",borderRadius:12,cursor:canEdit?"pointer":"default",background:e.done?a.color+"22":"rgba(255,255,255,0.03)",border:`1px solid ${e.done?a.color+"55":pal.border}`,marginBottom:5}}>
+                      <div onClick={()=>canEdit&&onToggle(a.id,dateKey)} style={{display:"flex",alignItems:"center",gap:11,padding:"12px 13px",borderRadius:12,cursor:canEdit?"pointer":"default",background:e.done?a.color+"22":"rgba(255,255,255,0.03)",border:`1px solid ${e.done?a.color+"55":pal.border}`,marginBottom:5,minHeight:48}}>
                         <span style={{fontSize:16,flexShrink:0}}>{a.icon||"⭕"}</span>
-                        <div style={{width:20,height:20,borderRadius:"50%",background:e.done?a.color:"rgba(255,255,255,0.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,flexShrink:0}}>{e.done?"✓":""}</div>
+                        <div style={{width:22,height:22,borderRadius:"50%",background:e.done?a.color:"rgba(255,255,255,0.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,flexShrink:0}}>{e.done?"✓":""}</div>
                         <span style={{flex:1,fontWeight:600,fontSize:14,color:e.done?a.color:tx,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.name}</span>
                       </div>
                       {canEdit&&<textarea value={e.note||""} onChange={ev=>onNote(dateKey,a.id,ev.target.value)} placeholder={t.addNote} style={{width:"100%",padding:"7px 11px",borderRadius:10,background:"rgba(255,255,255,0.04)",border:`1px solid ${pal.border}`,color:tx,fontSize:12,resize:"vertical",minHeight:36,outline:"none",boxSizing:"border-box",fontFamily:"system-ui"}}/>}
@@ -552,37 +573,37 @@ function EditModal({act,onSave,onClose,pal,t}){
           <div style={{fontWeight:800,fontSize:16,marginBottom:18}}>{t.editHabit}</div>
           <div style={{marginBottom:12}}>
             <label style={{fontSize:11,color:pal.sub,display:"block",marginBottom:5}}>{t.habits}</label>
-            <input value={name} onChange={e=>setName(e.target.value)} style={{width:"100%",padding:"9px 13px",borderRadius:10,background:"rgba(255,255,255,0.06)",border:`1px solid ${pal.border}`,color:tx,fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+            <input value={name} onChange={e=>setName(e.target.value)} style={{width:"100%",padding:"11px 13px",borderRadius:10,background:"rgba(255,255,255,0.06)",border:`1px solid ${pal.border}`,color:tx,fontSize:14,outline:"none",boxSizing:"border-box",minHeight:44}}/>
           </div>
           <div style={{marginBottom:12}}>
             <label style={{fontSize:11,color:pal.sub,display:"block",marginBottom:6}}>{t.category}</label>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
               {CATEGORIES.map(c=>(
-                <button key={c} onClick={()=>setCat(c)} style={{padding:"9px 10px",borderRadius:11,border:`1px solid ${cat===c?pal.a1:pal.border}`,background:cat===c?pal.a1+"22":"transparent",color:cat===c?pal.a1:pal.sub,cursor:"pointer",fontWeight:600,fontSize:12,textAlign:"left",display:"flex",alignItems:"center",gap:7}}>
-                  <span style={{fontSize:16,flexShrink:0}}>{catEmojis[c]}</span>
-                  <div style={{minWidth:0}}><div style={{fontSize:12,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{catLabels[c]}</div><div style={{fontSize:10,opacity:0.7,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t[`cat${c.charAt(0).toUpperCase()+c.slice(1)}Desc`]}</div></div>
+                <button key={c} onClick={()=>setCat(c)} style={{padding:"10px",borderRadius:11,border:`1px solid ${cat===c?pal.a1:pal.border}`,background:cat===c?pal.a1+"22":"transparent",color:cat===c?pal.a1:pal.sub,cursor:"pointer",fontWeight:600,fontSize:13,textAlign:"left",display:"flex",alignItems:"center",gap:7,minHeight:48}}>
+                  <span style={{fontSize:18,flexShrink:0}}>{catEmojis[c]}</span>
+                  <div style={{minWidth:0}}><div style={{fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{catLabels[c]}</div><div style={{fontSize:10,opacity:0.7,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t[`cat${c.charAt(0).toUpperCase()+c.slice(1)}Desc`]}</div></div>
                 </button>
               ))}
             </div>
           </div>
           <div style={{marginBottom:12}}>
             <label style={{fontSize:11,color:pal.sub,display:"block",marginBottom:6}}>{t.icon}</label>
-            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{ACT_ICONS.map(ic=><button key={ic} onClick={()=>setIcon(ic)} style={{fontSize:18,padding:"5px 7px",borderRadius:8,border:`2px solid ${ic===icon?pal.a1:"transparent"}`,background:"rgba(255,255,255,0.05)",cursor:"pointer"}}>{ic}</button>)}</div>
+            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{ACT_ICONS.map(ic=><button key={ic} onClick={()=>setIcon(ic)} style={{fontSize:20,padding:"6px 8px",borderRadius:8,border:`2px solid ${ic===icon?pal.a1:"transparent"}`,background:"rgba(255,255,255,0.05)",cursor:"pointer",minWidth:40,minHeight:40}}>{ic}</button>)}</div>
           </div>
           <div style={{marginBottom:12}}>
             <label style={{fontSize:11,color:pal.sub,display:"block",marginBottom:6}}>{t.color}</label>
-            <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{ACT_COLORS.map(c=><div key={c} onClick={()=>setColor(c)} style={{width:26,height:26,borderRadius:"50%",background:c,cursor:"pointer",border:c===color?`3px solid ${tx}`:"3px solid transparent",boxSizing:"border-box"}}/>)}</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{ACT_COLORS.map(c=><div key={c} onClick={()=>setColor(c)} style={{width:30,height:30,borderRadius:"50%",background:c,cursor:"pointer",border:c===color?`3px solid ${tx}`:"3px solid transparent",boxSizing:"border-box"}}/>)}</div>
           </div>
           <div style={{marginBottom:20}}>
             <label style={{fontSize:11,color:pal.sub,display:"block",marginBottom:5}}>{t.weeklyGoal}</label>
-            <div style={{display:"flex",gap:8,marginBottom:7}}>
-              {["none","days"].map(tp=><button key={tp} onClick={()=>setGoalType(tp)} style={{flex:1,padding:"7px",borderRadius:10,border:`1px solid ${goalType===tp?pal.a1:pal.border}`,background:goalType===tp?pal.a1+"22":"transparent",color:goalType===tp?pal.a1:pal.sub,cursor:"pointer",fontWeight:600,fontSize:12}}>{tp==="none"?t.noGoal:t.daysPerWeek}</button>)}
+            <div style={{display:"flex",gap:8,marginBottom:8}}>
+              {["none","days"].map(tp=><button key={tp} onClick={()=>setGoalType(tp)} style={{flex:1,minHeight:44,borderRadius:10,border:`1px solid ${goalType===tp?pal.a1:pal.border}`,background:goalType===tp?pal.a1+"22":"transparent",color:goalType===tp?pal.a1:pal.sub,cursor:"pointer",fontWeight:600,fontSize:13}}>{tp==="none"?t.noGoal:t.daysPerWeek}</button>)}
             </div>
-            {goalType==="days"&&<div style={{display:"flex",alignItems:"center",gap:10}}><input type="range" min={1} max={7} value={goalVal} onChange={e=>setGoalVal(+e.target.value)} style={{flex:1,accentColor:pal.a1}}/><span style={{color:tx,fontWeight:700,minWidth:60,fontSize:13}}>{goalVal}{t.perWeek}</span></div>}
+            {goalType==="days"&&<div style={{display:"flex",alignItems:"center",gap:10}}><input type="range" min={1} max={7} value={goalVal} onChange={e=>setGoalVal(+e.target.value)} style={{flex:1,accentColor:pal.a1,height:20}}/><span style={{color:tx,fontWeight:700,minWidth:60,fontSize:13}}>{goalVal}{t.perWeek}</span></div>}
           </div>
           <div style={{display:"flex",gap:10}}>
-            <button onClick={close} style={{flex:1,padding:"11px",borderRadius:12,background:"transparent",border:`1px solid ${pal.border}`,color:tx,fontWeight:600,cursor:"pointer"}}>{t.cancel}</button>
-            <button onClick={()=>{onSave({...act,name:name.trim()||act.name,color,icon,category:cat,goalType,goalVal});close();}} style={{flex:2,padding:"11px",borderRadius:12,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer"}}>{t.save}</button>
+            <button onClick={close} style={{flex:1,minHeight:48,borderRadius:12,background:"transparent",border:`1px solid ${pal.border}`,color:tx,fontWeight:600,cursor:"pointer",fontSize:15}}>{t.cancel}</button>
+            <button onClick={()=>{onSave({...act,name:name.trim()||act.name,color,icon,category:cat,goalType,goalVal});close();}} style={{flex:2,minHeight:48,borderRadius:12,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:15}}>{t.save}</button>
           </div>
         </div>
       )}
@@ -591,12 +612,48 @@ function EditModal({act,onSave,onClose,pal,t}){
 }
 
 // ── SwipeRow ──────────────────────────────────────────────────────────────────
+// No red icon visible at rest. As the user drags left:
+//   0 %  → background invisible, icon invisible
+//   50 % → background faint, icon appears
+//   100% → background solid red, icon full size → triggers delete on release
 function SwipeRow({children,onDelete}){
-  const [ox,setOx]=useState(0),[sw,setSw]=useState(false),sx=useRef(null);
+  const [ox,setOx]=useState(0);
+  const [swiping,setSwiping]=useState(false);
+  const sx=useRef(null);
+  const THRESHOLD=80;
+  // progress: 0 at rest → 1 at threshold
+  const p=Math.min(1,Math.abs(ox)/THRESHOLD);
+  // icon only fades in after 30% drag so there is no hint at rest
+  const iconOpacity=Math.max(0,(p-0.3)/0.7);
   return(
     <div style={{position:"relative",overflow:"hidden",borderRadius:12}}>
-      <div style={{position:"absolute",right:0,top:0,bottom:0,width:72,background:"#ef4444",borderRadius:"0 12px 12px 0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🗑️</div>
-      <div onTouchStart={e=>{sx.current=e.touches[0].clientX;setSw(true);}} onTouchMove={e=>{if(sx.current===null)return;setOx(Math.min(0,e.touches[0].clientX-sx.current));}} onTouchEnd={()=>{setSw(false);if(ox<-72)onDelete();else setOx(0);sx.current=null;}} style={{transform:`translateX(${ox}px)`,transition:sw?"none":"transform 0.3s ease",position:"relative",zIndex:1}}>{children}</div>
+      {/* Danger layer — completely invisible until user starts dragging */}
+      <div style={{
+        position:"absolute",inset:0,
+        background:`rgba(239,68,68,${p*0.85})`,
+        borderRadius:12,
+        display:"flex",alignItems:"center",justifyContent:"flex-end",
+        paddingRight:18,
+        transition:swiping?"none":"background 0.25s",
+        pointerEvents:"none",
+      }}>
+        <svg
+          width={20} height={20} viewBox="0 0 24 24"
+          fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+          style={{opacity:iconOpacity,transform:`scale(${0.6+p*0.4})`,transition:swiping?"none":"all 0.2s"}}
+        >
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6l-1 14H6L5 6"/>
+          <path d="M10 11v6M14 11v6"/>
+          <path d="M9 6V4h6v2"/>
+        </svg>
+      </div>
+      <div
+        onTouchStart={e=>{sx.current=e.touches[0].clientX;setSwiping(true);}}
+        onTouchMove={e=>{if(sx.current===null)return;setOx(Math.min(0,e.touches[0].clientX-sx.current));}}
+        onTouchEnd={()=>{setSwiping(false);if(ox<-THRESHOLD)onDelete();else setOx(0);sx.current=null;}}
+        style={{transform:`translateX(${ox}px)`,transition:swiping?"none":"transform 0.3s ease",position:"relative",zIndex:1}}
+      >{children}</div>
     </div>
   );
 }
@@ -608,12 +665,19 @@ function DeleteConfirm({actName,onConfirm,onClose,pal,t}){
     <SlideModal onClose={onClose} pal={pal}>
       {close=>(
         <div style={{textAlign:"center",color:tx}}>
-          <div style={{fontSize:40,marginBottom:10}}>🗑️</div>
+          <div style={{width:52,height:52,borderRadius:"50%",background:"rgba(239,68,68,0.1)",border:"1.5px solid rgba(239,68,68,0.25)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}>
+            <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14H6L5 6"/>
+              <path d="M10 11v6M14 11v6"/>
+              <path d="M9 6V4h6v2"/>
+            </svg>
+          </div>
           <div style={{fontWeight:800,fontSize:17,marginBottom:7}}>{t.deleteConfirmTitle(actName)}</div>
           <div style={{color:pal.sub,fontSize:13,marginBottom:24,lineHeight:1.5}}>{t.deleteConfirmBody}</div>
           <div style={{display:"flex",gap:10}}>
-            <button onClick={close} style={{flex:1,padding:"12px",borderRadius:12,background:"transparent",border:`1px solid ${pal.border}`,color:tx,fontWeight:600,cursor:"pointer"}}>{t.cancel}</button>
-            <button onClick={()=>{onConfirm();close();}} style={{flex:1,padding:"12px",borderRadius:12,background:"#ef4444",border:"none",color:"#fff",fontWeight:700,cursor:"pointer"}}>{t.deleteHabit}</button>
+            <button onClick={close} style={{flex:1,minHeight:48,borderRadius:12,background:"transparent",border:`1px solid ${pal.border}`,color:tx,fontWeight:600,cursor:"pointer",fontSize:15}}>{t.cancel}</button>
+            <button onClick={()=>{onConfirm();close();}} style={{flex:1,minHeight:48,borderRadius:12,background:"#ef4444",border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:15}}>{t.deleteHabit}</button>
           </div>
         </div>
       )}
@@ -622,28 +686,32 @@ function DeleteConfirm({actName,onConfirm,onClose,pal,t}){
 }
 
 // ── Settings Panel ────────────────────────────────────────────────────────────
-function SettingsPanel({palKey,setPalKey,lang,setLang,notifPerm,onEnableNotif,pal,t}){
+function SettingsPanel({palKey,setPalKey,lang,setLang,notifPerm,onEnableNotif,soundEnabled,setSoundEnabled,pal,t}){
   const tx=pal.text||"#fff";
-  const palNames={green:"🌲 Forest",indigo:"🌌 Indigo",rose:"🌹 Rose",amber:"🌅 Amber",light:"☀️ Light"};
+  const palNames={green:"Forest",indigo:"Indigo",rose:"Rose",amber:"Amber",light:"Light"};
+  const palEmoji={green:"🌲",indigo:"🌌",rose:"🌹",amber:"🌅",light:"☀️"};
   return(
-    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      {/* Theme */}
       <div style={{background:pal.card,border:`1px solid ${pal.border}`,borderRadius:16,padding:20}}>
-        <div style={{fontWeight:700,fontSize:14,color:tx,marginBottom:14}}>🎨 {t.theme}</div>
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        <div style={{fontWeight:700,fontSize:14,color:tx,marginBottom:14}}>{t.theme}</div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {Object.entries(PALETTES).map(([k,p])=>(
-            <button key={k} onClick={()=>setPalKey(k)} style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",borderRadius:12,border:`1px solid ${k===palKey?p.a1:pal.border}`,background:k===palKey?p.a1+"18":"transparent",cursor:"pointer",width:"100%",textAlign:"left"}}>
-              <div style={{width:28,height:28,borderRadius:"50%",background:`linear-gradient(135deg,${p.a1},${p.a2})`,flexShrink:0,border:k===palKey?`2px solid ${tx}`:"2px solid transparent",boxSizing:"border-box"}}/>
-              <span style={{fontWeight:600,fontSize:14,color:k===palKey?p.a1:tx}}>{palNames[k]}</span>
+            <button key={k} onClick={()=>setPalKey(k)} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:12,border:`1px solid ${k===palKey?p.a1:pal.border}`,background:k===palKey?p.a1+"18":"transparent",cursor:"pointer",width:"100%",textAlign:"left",minHeight:52}}>
+              <div style={{width:28,height:28,borderRadius:"50%",background:`linear-gradient(135deg,${p.a1},${p.a2})`,flexShrink:0}}/>
+              <span style={{fontWeight:600,fontSize:14,color:k===palKey?p.a1:tx}}>{palEmoji[k]} {palNames[k]}</span>
               {k===palKey&&<span style={{marginLeft:"auto",color:p.a1,fontSize:16}}>✓</span>}
             </button>
           ))}
         </div>
       </div>
+
+      {/* Language */}
       <div style={{background:pal.card,border:`1px solid ${pal.border}`,borderRadius:16,padding:20}}>
-        <div style={{fontWeight:700,fontSize:14,color:tx,marginBottom:14}}>🌍 {t.language}</div>
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        <div style={{fontWeight:700,fontSize:14,color:tx,marginBottom:14}}>{t.language}</div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {Object.entries(TRANSLATIONS).map(([k,v])=>(
-            <button key={k} onClick={()=>setLang(k)} style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",borderRadius:12,border:`1px solid ${k===lang?pal.a1:pal.border}`,background:k===lang?pal.a1+"18":"transparent",cursor:"pointer",width:"100%",textAlign:"left"}}>
+            <button key={k} onClick={()=>setLang(k)} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:12,border:`1px solid ${k===lang?pal.a1:pal.border}`,background:k===lang?pal.a1+"18":"transparent",cursor:"pointer",width:"100%",textAlign:"left",minHeight:52}}>
               <span style={{fontSize:22}}>{v.flag}</span>
               <span style={{fontWeight:600,fontSize:14,color:k===lang?pal.a1:tx}}>{v.name}</span>
               {k===lang&&<span style={{marginLeft:"auto",color:pal.a1,fontSize:16}}>✓</span>}
@@ -651,12 +719,27 @@ function SettingsPanel({palKey,setPalKey,lang,setLang,notifPerm,onEnableNotif,pa
           ))}
         </div>
       </div>
+
+      {/* Sound */}
+      <div style={{background:pal.card,border:`1px solid ${pal.border}`,borderRadius:16,padding:20}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:14,color:tx}}>{t.soundFx}</div>
+            <div style={{fontSize:12,color:pal.muted,marginTop:2}}>{soundEnabled?t.soundOn:t.soundOff}</div>
+          </div>
+          <button onClick={()=>setSoundEnabled(s=>!s)} style={{width:52,height:30,borderRadius:15,background:soundEnabled?pal.a1:"rgba(255,255,255,0.1)",border:"none",cursor:"pointer",position:"relative",transition:"background 0.25s",flexShrink:0}}>
+            <div style={{position:"absolute",top:3,left:soundEnabled?24:3,width:24,height:24,borderRadius:"50%",background:"#fff",transition:"left 0.25s",boxShadow:"0 1px 4px rgba(0,0,0,0.3)"}}/>
+          </button>
+        </div>
+      </div>
+
+      {/* Notifications */}
       <div style={{background:pal.card,border:`1px solid ${pal.border}`,borderRadius:16,padding:20}}>
         <div style={{fontWeight:700,fontSize:14,color:tx,marginBottom:5}}>{t.streakReminders}</div>
         <div style={{fontSize:13,color:pal.muted,marginBottom:12}}>{t.notifDesc}</div>
         {notifPerm==="granted"
-          ?<div style={{color:pal.a1,fontWeight:600,fontSize:13}}>{t.notifEnabled}</div>
-          :<button onClick={onEnableNotif} style={{padding:"9px 18px",borderRadius:10,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>{t.enableNotif}</button>}
+          ?<div style={{color:pal.a1,fontWeight:600,fontSize:13}}>✓ {t.notifEnabled}</div>
+          :<button onClick={onEnableNotif} style={{padding:"11px 18px",borderRadius:10,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13,minHeight:44}}>{t.enableNotif}</button>}
       </div>
     </div>
   );
@@ -680,7 +763,7 @@ function drawShareCard(canvas,activities,log,streaks,pal,t){
   const totalDays=Object.keys(log).filter(k=>Object.values(log[k]).some(x=>x?.done)).length;
   const tw=[0,1,2,3,4,5,6].map(i=>{const d2=new Date();d2.setDate(d2.getDate()-i);return toKey(d2);});
   const wr=Math.round(tw.filter(k=>log[k]&&Object.values(log[k]).some(x=>x?.done)).length/7*100);
-  [{label:`🔥 ${t.overallStreak}`,val:t.days(os)},{label:`📅 ${t.activeDays}`,val:String(totalDays)},{label:`📊 ${t.week}`,val:`${wr}%`},{label:`🎯 ${t.habits}`,val:String(activities.length)}].forEach((b,i)=>{
+  [{label:`${t.overallStreak}`,val:t.days(os)},{label:`${t.activeDays}`,val:String(totalDays)},{label:`${t.week}`,val:`${wr}%`},{label:`${t.habits}`,val:String(activities.length)}].forEach((b,i)=>{
     const x=36+(i%2)*220,y=110+Math.floor(i/2)*90;
     ctx.fillStyle="rgba(255,255,255,0.06)";ctx.beginPath();ctx.roundRect(x,y,200,70,12);ctx.fill();
     ctx.strokeStyle=pal.a1+"55";ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(x,y,200,70,12);ctx.stroke();
@@ -694,7 +777,7 @@ function drawShareCard(canvas,activities,log,streaks,pal,t){
     const s=streaks[a.id]||{current:0};
     ctx.fillStyle=a.color;ctx.beginPath();ctx.arc(56,y+15,8,0,Math.PI*2);ctx.fill();
     ctx.fillStyle=tx2;ctx.font="13px system-ui";ctx.fillText((a.icon||"")+" "+a.name,72,y+19);
-    ctx.fillStyle=a.color;ctx.font="bold 13px system-ui";ctx.fillText("🔥 "+t.days(s.current),W-90,y+19);
+    ctx.fillStyle=a.color;ctx.font="bold 13px system-ui";ctx.fillText(t.days(s.current),W-90,y+19);
   });
   const hmY=110+200+36+ac*38+20;
   ctx.fillStyle=tx2;ctx.font="bold 15px system-ui";ctx.fillText(t.last4weeks,36,hmY+16);
@@ -708,31 +791,128 @@ function drawShareCard(canvas,activities,log,streaks,pal,t){
   ctx.fillStyle="#555";ctx.font="12px system-ui";ctx.fillText(t.madeWith,36,H-10);
 }
 
-// ── Category Section Header ───────────────────────────────────────────────────
-function CatHeader({ cat, label, pal, count }) {
-  if (count === 0) return null;
-  return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 7,
-      margin: "14px 0 7px",
-      paddingBottom: 6,
-      borderBottom: `1px solid ${pal.border}`,
-    }}>
-      <span style={{ fontSize: 14 }}>{CAT_ICONS[cat]}</span>
-      <span style={{ fontSize: 12, fontWeight: 700, color: pal.sub, textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</span>
-      <span style={{ fontSize: 11, color: pal.muted, marginLeft: "auto", background: "rgba(255,255,255,0.06)", padding: "1px 7px", borderRadius: 8 }}>{count}</span>
+// ── Heatmap with month labels + column dividers ───────────────────────────────
+function HeatmapGrid({heatmap, activities, pal, t, todayKey, onCellClick}){
+  const COLS=16, ROWS=7;
+  // Month abbreviation per column (week)
+  const colMonths=Array.from({length:COLS},(_,w)=>{
+    const cell=heatmap[w*ROWS];
+    if(!cell)return "";
+    return new Date(cell.k+"T12:00:00").toLocaleString("default",{month:"short"});
+  });
+  // Label only on first column of each new month; others get empty string
+  const labels=colMonths.map((m,i)=>(i===0||m!==colMonths[i-1])?m:"");
+  // Boolean: does this column start a new month (after the first)?
+  const boundary=colMonths.map((m,i)=>i>0&&m!==colMonths[i-1]);
+
+  return(
+    <div>
+      {/* Month label row — always same height, invisible placeholder when no label */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(16,1fr)",gap:2,marginBottom:3}}>
+        {labels.map((label,w)=>(
+          <div key={w} style={{
+            height:11,lineHeight:"11px",
+            fontSize:"clamp(7px,1.7vw,9px)",
+            fontWeight:700,
+            color:label?pal.a1:"transparent",
+            textAlign:"center",
+            overflow:"hidden",whiteSpace:"nowrap",
+          }}>
+            {label||"·"}
+          </div>
+        ))}
+      </div>
+      {/* Cell grid */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(16,1fr)",gap:2}}>
+        {Array.from({length:COLS},(_,w)=>
+          Array.from({length:ROWS},(_,d)=>{
+            const cell=heatmap[w*ROWS+d];
+            if(!cell)return <div key={`${w}-${d}`}/>;
+            const alpha=cell.done===0?0.06:0.15+cell.done/Math.max(activities.length,1)*0.85;
+            return(
+              <div key={cell.k} onClick={()=>onCellClick(cell.k)}
+                style={{
+                  aspectRatio:"1",borderRadius:2,cursor:"pointer",
+                  background:cell.isRest?`rgba(${hexToRgb(pal.a1)},0.15)`:cell.done===0?"rgba(255,255,255,0.06)":`rgba(${hexToRgb(pal.a1)},${alpha})`,
+                  border:cell.k===todayKey?`1px solid ${pal.a1}`:cell.isRest?`1px solid ${pal.a1}44`:"none",
+                  // divider runs the full column height at every month boundary
+                  boxShadow:boundary[w]?`-2px 0 0 ${pal.muted}55`:undefined,
+                }}
+              />
+            );
+          })
+        )}
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:5,marginTop:8,fontSize:10,color:pal.muted,flexWrap:"wrap"}}>
+        <span>{t.less}</span>
+        {[0.06,0.3,0.5,0.7,0.95].map(a=>(
+          <div key={a} style={{width:10,height:10,borderRadius:2,background:`rgba(${hexToRgb(pal.a1)},${a})`}}/>
+        ))}
+        <span>{t.more}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Category section header ───────────────────────────────────────────────────
+function CatHeader({cat,label,pal,count}){
+  if(count===0)return null;
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:7,margin:"14px 0 7px",paddingBottom:6,borderBottom:`1px solid ${pal.border}`}}>
+      <span style={{fontSize:14}}>{CAT_ICONS[cat]}</span>
+      <span style={{fontSize:12,fontWeight:700,color:pal.sub,textTransform:"uppercase",letterSpacing:"0.07em"}}>{label}</span>
+      <span style={{fontSize:11,color:pal.muted,marginLeft:"auto",background:"rgba(255,255,255,0.06)",padding:"1px 7px",borderRadius:8}}>{count}</span>
+    </div>
+  );
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+// variant="checkin" → prompt to switch to Habits tab
+// variant="habits"  → prompt to type in the input above
+function EmptyState({pal,t,onCTA,variant}){
+  const tx=pal.text||"#fff";
+  const isHabitsTab=variant==="habits";
+  return(
+    <div style={{textAlign:"center",padding:"36px 16px 24px"}}>
+      {/* SVG chain-link icon */}
+      <div style={{width:64,height:64,borderRadius:"50%",background:pal.a1+"18",border:`1.5px solid ${pal.a1}44`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}>
+        <svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke={pal.a1} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        </svg>
+      </div>
+      <div style={{fontWeight:800,fontSize:17,color:tx,marginBottom:6}}>{t.noHabitsYet}</div>
+      <div style={{color:pal.sub,fontSize:13,marginBottom:24,lineHeight:1.55}}>
+        {isHabitsTab ? t.noHabitsDesc : t.noHabitsDesc}
+      </div>
+      <button
+        onClick={onCTA}
+        style={{padding:"14px 32px",borderRadius:14,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:15,minHeight:50,minWidth:200,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8}}
+      >
+        <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+          {isHabitsTab
+            ? <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>
+            : <><polyline points="9 18 15 12 9 6"/></>
+          }
+        </svg>
+        {isHabitsTab ? t.addFirstHabit : t.addFirstHabit}
+      </button>
     </div>
   );
 }
 
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App(){
+  const prefersDark=window.matchMedia&&window.matchMedia("(prefers-color-scheme:dark)").matches;
+
+  // Initialize lang and palette immediately from storage — fixes onboarding language
+  const [lang,setLang]=useState(()=>lsGet("st_lang",detectLang()));
+  const [palKey,setPalKey]=useState(()=>lsGet("st_palette",prefersDark?"green":"light"));
+
   const [loaded,setLoaded]=useState(false);
-  const [lang,setLang]=useState("en");
   const [tab,setTab]=useState("checkin");
   const [activities,setActivities]=useState([]);
   const [log,setLog]=useState({});
-  const [palKey,setPalKey]=useState("green");
   const [onboarded,setOnboarded]=useState(false);
   const [newName,setNewName]=useState("");
   const [newCat,setNewCat]=useState("sport");
@@ -745,15 +925,14 @@ export default function App(){
   const [toast,setToast]=useState(null);
   const [showWeekly,setShowWeekly]=useState(false);
   const [freezesUsed,setFreezesUsed]=useState({});
+  const [soundEnabled,setSoundEnabled]=useState(()=>lsGet("st_sound",true));
   const canvasRef=useRef();
+  const newHabitInputRef=useRef();
   const seenMilestones=useRef(new Set(lsGet("st_milestones",[])));
-  const prefersDark=window.matchMedia&&window.matchMedia("(prefers-color-scheme:dark)").matches;
 
   useEffect(()=>{
     setActivities(lsGet("st_activities",[]));
     setLog(migrateLog(lsGet("st_log",{})));
-    setLang(lsGet("st_lang",detectLang()));
-    setPalKey(lsGet("st_palette",prefersDark?"green":"light"));
     setOnboarded(lsGet("st_onboarded",false));
     setFreezesUsed(lsGet("st_freezes",{}));
     if(typeof Notification!=="undefined")setNotifPerm(Notification.permission);
@@ -762,11 +941,12 @@ export default function App(){
     setLoaded(true);
   },[]);
 
-  useEffect(()=>{if(loaded){lsSet("st_activities",activities);lsSet("st_log",log);lsSet("st_palette",palKey);lsSet("st_freezes",freezesUsed);lsSet("st_lang",lang);}},[activities,log,palKey,freezesUsed,lang,loaded]);
+  useEffect(()=>{if(loaded){lsSet("st_activities",activities);lsSet("st_log",log);lsSet("st_palette",palKey);lsSet("st_freezes",freezesUsed);lsSet("st_lang",lang);lsSet("st_sound",soundEnabled);}},[activities,log,palKey,freezesUsed,lang,soundEnabled,loaded]);
 
   const pal=PALETTES[palKey]||PALETTES.green,tx=pal.text||"#fff",t=TRANSLATIONS[lang]||TRANSLATIONS.en,isRTL=lang==="ar";
   const catLabel=(c)=>({sport:t.catSport,mind:t.catMind,health:t.catHealth,other:t.catOther}[c]||c);
   const catEmoji=(c)=>({sport:"🏃",mind:"🧠",health:"💧",other:"⭐"}[c]||"⭐");
+  const todayKey=today(),yesterdayKey=yesterday();
 
   function getStreaks(){
     const res={};
@@ -781,7 +961,6 @@ export default function App(){
     });
     return res;
   }
-  const todayKey=today(),yesterdayKey=yesterday();
   const streaks=getStreaks();
 
   useEffect(()=>{
@@ -802,15 +981,20 @@ export default function App(){
   const longestOverall=Math.max(...activities.map(a=>(streaks[a.id]||{}).best||0),0);
   function mostActiveWeek(){let b=0;for(let w=0;w<52;w++){const c=Array.from({length:7},(_,d)=>toKey(daysAgo(w*7+d))).filter(k=>log[k]&&Object.values(log[k]).some(x=>x?.done)).length;b=Math.max(b,c);}return b;}
 
-  const thisMonth=today().slice(0,7),freezeAvailable=!freezesUsed[thisMonth];
+  const thisMonth=todayKey.slice(0,7),freezeAvailable=!freezesUsed[thisMonth];
   const daysUntilFreeze=daysUntilNextMonth();
 
   const todayLog=log[todayKey]||{},isRestToday=todayLog.__rest__?.done;
   const hasSportToday=activities.some(a=>a.category==="sport");
 
+  // Today's progress for header
+  const todayDoneCount=activities.filter(a=>todayLog[a.id]?.done).length;
+  const todayTotal=activities.length;
+  const todayPct=todayTotal>0?Math.round(todayDoneCount/todayTotal*100):0;
+
   function toggle(id,dateKey=todayKey){
     const newDone=!log[dateKey]?.[id]?.done;
-    playCheckSound(newDone);
+    if(soundEnabled)playCheckSound(newDone);
     setPulseId(id);setTimeout(()=>setPulseId(null),600);
     haptic("medium");
     setLog(prev=>({...prev,[dateKey]:{...prev[dateKey],[id]:{...prev[dateKey]?.[id],done:newDone}}}));
@@ -825,8 +1009,9 @@ export default function App(){
   const heatmap=Array.from({length:112},(_,i)=>{const d=daysAgo(111-i),k=toKey(d);return{k,done:log[k]?Object.values(log[k]).filter(x=>x?.done).length:0,isRest:log[k]?.__rest__?.done};});
   const bars=Array.from({length:7},(_,i)=>{const d=daysAgo(6-i),k=toKey(d);return{label:DAYS_EN[d.getDay()],done:log[k]?Object.values(log[k]).filter(x=>x?.done).length:0,k};});
   const maxBar=Math.max(...bars.map(b=>b.done),1);
+  const groups=groupByCategory(activities);
 
-  async function enableNotifications(){if(typeof Notification==="undefined")return;const p=await Notification.requestPermission();setNotifPerm(p);if(p==="granted"){const now=new Date(),tm=new Date();tm.setHours(20,0,0,0);if(now>tm)tm.setDate(tm.getDate()+1);setTimeout(()=>{if(!(log[today()]&&Object.values(log[today()]).some(x=>x?.done))&&overallStreak>0)new Notification("🔥 Chainly",{body:`${overallStreak}d streak at risk!`});},tm-now);}}
+  async function enableNotifications(){if(typeof Notification==="undefined")return;const p=await Notification.requestPermission();setNotifPerm(p);if(p==="granted"){const now=new Date(),tm=new Date();tm.setHours(20,0,0,0);if(now>tm)tm.setDate(tm.getDate()+1);setTimeout(()=>{if(!(log[today()]&&Object.values(log[today()]).some(x=>x?.done))&&overallStreak>0)new Notification("Chainly",{body:`${overallStreak}d streak at risk!`});},tm-now);}}
   function renderShare(){const c=canvasRef.current;c.width=492;drawShareCard(c,activities,log,streaks,pal,t);setShareReady(true);}
   function downloadPNG(){const a=document.createElement("a");a.download="chainly-stats.png";a.href=canvasRef.current.toDataURL("image/png");a.click();}
   function shareTwitter(){window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(t.shareText(overallStreak,totalActive,weeklyDone))}`,"_blank");}
@@ -834,12 +1019,15 @@ export default function App(){
   async function copyImg(){canvasRef.current.toBlob(async b=>{try{await navigator.clipboard.write([new ClipboardItem({"image/png":b})]);alert(t.copied);}catch{alert(t.copyFail);}});}
 
   const cardStyle={background:pal.card,border:`1px solid ${pal.border}`,borderRadius:16,padding:18};
-  const tabs=[{id:"checkin",label:t.checkin,icon:"✅"},{id:"stats",label:t.stats,icon:"📊"},{id:"habits",label:t.habits,icon:"⛓️"},{id:"share",label:t.share,icon:"📤"},{id:"settings",label:t.settings,icon:"⚙️"}];
+  const tabs=[
+    {id:"checkin",  label:t.checkin,  icon:<svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.3} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>},
+    {id:"stats",    label:t.stats,    icon:<svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.3} strokeLinecap="round" strokeLinejoin="round"><rect x="18" y="3" width="4" height="18" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="2" y="13" width="4" height="8" rx="1"/></svg>},
+    {id:"habits",   label:t.habits,   icon:<svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.3} strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="3" cy="18" r="1.3" fill="currentColor" stroke="none"/></svg>},
+    {id:"share",    label:t.share,    icon:<svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.3} strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>},
+    {id:"settings", label:t.settings, icon:<svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.3} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>},
+  ];
 
-  // grouped activities for rendering
-  const groups = groupByCategory(activities);
-
-  if(!loaded)return <Skeleton pal={PALETTES[lsGet("st_palette","green")]||PALETTES.green}/>;
+  if(!loaded)return <Skeleton pal={PALETTES[palKey]||PALETTES.green}/>;
 
   return(
     <div style={{minHeight:"100vh",background:pal.bg0,color:tx,fontFamily:"system-ui,sans-serif",paddingBottom:40,direction:isRTL?"rtl":"ltr"}}>
@@ -847,38 +1035,48 @@ export default function App(){
         *, *::before, *::after { box-sizing: border-box; }
         * { -webkit-tap-highlight-color: transparent; }
         body { margin: 0; overflow-x: hidden; }
-        .cl-habit-row { display: flex; align-items: center; gap: 11px; }
-        .cl-habit-name { font-weight: 700; font-size: clamp(12px, 3.5vw, 14px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-        .cl-habit-meta { font-size: clamp(10px, 2.5vw, 11px); color: inherit; margin-top: 1px; display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
-        .cl-stat-val { font-size: clamp(16px, 5vw, 19px); font-weight: 800; }
-        .cl-stat-label { font-size: clamp(9px, 2.3vw, 10px); margin-top: 1px; }
-        .cl-tab-label { display: none; }
-        @media (min-width: 400px) { .cl-tab-label { display: inline; } }
-        @media (max-width: 359px) {
+        .cl-name { font-size: clamp(12px,3.5vw,14px); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
+        .cl-meta { font-size: clamp(10px,2.5vw,11px); margin-top:1px; display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
+        .cl-sv { font-size: clamp(17px,5vw,20px); font-weight:800; }
+        .cl-sl { font-size: clamp(9px,2.3vw,11px); margin-top:2px; }
+        .cl-tab-txt { display:none; }
+        @media(min-width:400px){ .cl-tab-txt { display:inline; } }
+        @media(max-width:359px){
           .cl-top-grid { grid-template-columns: 1fr 1fr !important; }
-          .cl-stats-grid { grid-template-columns: 1fr 1fr !important; }
         }
       `}</style>
 
-      {!onboarded&&<Onboarding onDone={()=>{setOnboarded(true);lsSet("st_onboarded",true);}} pal={pal} t={t}/>}
+      {!onboarded&&<Onboarding onDone={()=>{setOnboarded(true);lsSet("st_onboarded",true);}} pal={pal}/>}
       {showWeekly&&<SlideModal onClose={()=>setShowWeekly(false)} pal={pal}>{close=><WeeklyReview log={log} activities={activities} streaks={streaks} onClose={close} pal={pal} t={t}/>}</SlideModal>}
       {dayModal&&<DayModal dateKey={dayModal} activities={activities} log={log} onClose={()=>setDayModal(null)} onToggle={toggle} onNote={setNote} onRestDay={toggleRest} pal={pal} t={t}/>}
       {editAct&&<EditModal act={editAct} onSave={a=>{saveActivity(a);setEditAct(null);}} onClose={()=>setEditAct(null)} pal={pal} t={t}/>}
       {deleteAct&&<DeleteConfirm actName={deleteAct.name} onConfirm={()=>removeActivity(deleteAct.id)} onClose={()=>setDeleteAct(null)} pal={pal} t={t}/>}
       {toast&&<MilestoneToast milestone={toast.milestone} actName={toast.actName} onClose={()=>setToast(null)} pal={pal} t={t}/>}
 
-      {/* Header */}
+      {/* ── Header ── */}
       <div style={{background:`linear-gradient(135deg,${pal.bg1},${pal.bg2})`,borderBottom:`1px solid ${pal.border}`,padding:"14px 14px 0"}}>
         <div style={{maxWidth:640,margin:"0 auto"}}>
-          <div style={{marginBottom:10,display:"flex",alignItems:"baseline",justifyContent:"space-between",flexWrap:"wrap",gap:4}}>
-            <h1 style={{margin:0,fontSize:"clamp(18px,5vw,22px)",fontWeight:800,color:pal.a1,whiteSpace:"nowrap"}}>Chainly ⛓️</h1>
-            <p style={{margin:0,color:pal.sub,fontSize:"clamp(10px,2.8vw,12px)",textAlign:"right"}}>{new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</p>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,gap:8,flexWrap:"wrap"}}>
+            <div>
+              <h1 style={{margin:0,fontSize:"clamp(18px,5vw,22px)",fontWeight:800,color:pal.a1}}>Chainly</h1>
+              <p style={{margin:0,color:pal.sub,fontSize:"clamp(10px,2.8vw,12px)"}}>{new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</p>
+            </div>
+            {/* Day progress — always visible when habits exist */}
+            {todayTotal>0&&(
+              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3,minWidth:96}}>
+                <span style={{fontSize:11,color:todayDoneCount===todayTotal?pal.a1:pal.sub,fontWeight:700,whiteSpace:"nowrap"}}>{t.todayProgress(todayDoneCount,todayTotal)}</span>
+                <div style={{width:96,height:5,borderRadius:3,background:"rgba(255,255,255,0.08)"}}>
+                  <div style={{height:"100%",borderRadius:3,background:todayDoneCount===todayTotal?pal.a1:pal.a1+"99",width:todayPct+"%",transition:"width 0.5s"}}/>
+                </div>
+              </div>
+            )}
           </div>
-          <div style={{display:"flex",gap:0,overflowX:"auto",scrollbarWidth:"none",msOverflowStyle:"none"}}>
+          {/* Tabs */}
+          <div style={{display:"flex",gap:0,overflowX:"auto",scrollbarWidth:"none"}}>
             {tabs.map(tb=>(
-              <button key={tb.id} onClick={()=>setTab(tb.id)} style={{padding:"8px clamp(6px,2.5vw,13px)",borderRadius:"10px 10px 0 0",border:"none",cursor:"pointer",fontWeight:600,fontSize:"clamp(10px,2.8vw,12px)",whiteSpace:"nowrap",background:tab===tb.id?pal.a1:"transparent",color:tab===tb.id?"#fff":pal.sub,borderBottom:tab===tb.id?`2px solid ${pal.a1}`:"2px solid transparent",display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
-                <span style={{fontSize:"clamp(11px,3vw,13px)"}}>{tb.icon}</span>
-                <span className="cl-tab-label">{tb.label}</span>
+              <button key={tb.id} onClick={()=>setTab(tb.id)} style={{padding:"10px clamp(7px,2.5vw,14px)",borderRadius:"10px 10px 0 0",border:"none",cursor:"pointer",fontWeight:600,fontSize:"clamp(11px,2.8vw,12px)",whiteSpace:"nowrap",background:tab===tb.id?pal.a1:"transparent",color:tab===tb.id?"#fff":pal.sub,borderBottom:tab===tb.id?`2px solid ${pal.a1}`:"2px solid transparent",display:"flex",alignItems:"center",gap:5,flexShrink:0,minHeight:44}}>
+                {tb.icon}
+                <span className="cl-tab-txt">{tb.label}</span>
               </button>
             ))}
           </div>
@@ -890,96 +1088,99 @@ export default function App(){
         {/* ── CHECK-IN ── */}
         {tab==="checkin"&&<div>
           <div className="cl-top-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
-            {[["🔥",t.streak,t.days(overallStreak)],["📅",t.active,totalActive],["📊",t.week,`${weeklyDone}/7`]].map(([e,l,v])=>(
-              <div key={l} style={{...cardStyle,textAlign:"center",padding:"10px 8px"}}>
-                <div style={{fontSize:"clamp(15px,4vw,18px)"}}>{e}</div>
-                <div className="cl-stat-val" style={{color:pal.a1}}>{v}</div>
-                <div className="cl-stat-label" style={{color:pal.muted}}>{l}</div>
+            {[[t.streak,t.days(overallStreak),"🔥"],[t.active,totalActive,"📅"],[t.week,`${weeklyDone}/7`,"📊"]].map(([l,v,e])=>(
+              <div key={l} style={{...cardStyle,textAlign:"center",padding:"12px 8px"}}>
+                <div style={{fontSize:9,color:pal.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:3}}>{l}</div>
+                <div className="cl-sv" style={{color:pal.a1}}>{v}</div>
               </div>
             ))}
           </div>
 
           {/* Rest + Freeze */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-            {hasSportToday
-              ?<button onClick={()=>toggleRest(todayKey)} style={{padding:"9px 8px",borderRadius:12,background:isRestToday?pal.a1+"33":"rgba(255,255,255,0.03)",border:`1px solid ${isRestToday?pal.a1:pal.border}`,color:isRestToday?pal.a1:pal.sub,fontWeight:700,cursor:"pointer",fontSize:"clamp(10px,2.8vw,12px)"}}>{isRestToday?t.restDayDone:t.restDay}</button>
-              :<div style={{padding:"9px 8px",borderRadius:12,background:"rgba(255,255,255,0.02)",border:`1px solid rgba(255,255,255,0.04)`,color:pal.muted,fontSize:"clamp(9px,2.5vw,11px)",display:"flex",alignItems:"center",justifyContent:"center",textAlign:"center",lineHeight:1.3}}>{t.restDayNotApplicable}</div>
-            }
-            <button onClick={()=>{if(freezeAvailable){toggleRest(todayKey);setFreezesUsed(p=>({...p,[thisMonth]:true}));}}} style={{padding:"7px 8px",borderRadius:12,background:"rgba(255,255,255,0.02)",border:`1px solid ${freezeAvailable?pal.border:"rgba(255,255,255,0.04)"}`,color:freezeAvailable?pal.sub:pal.muted,fontWeight:700,cursor:freezeAvailable?"pointer":"default",fontSize:"clamp(9px,2.5vw,11px)",lineHeight:1.4,textAlign:"center"}}>
-              <div>{freezeAvailable?t.streakFreeze:t.freezeUsed}</div>
-              <div style={{fontWeight:400,marginTop:2,color:pal.muted}}>{freezeAvailable?t.freezeOnceMonth:t.freezeRefillIn(daysUntilFreeze)}</div>
+          {hasSportToday&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+            <button onClick={()=>toggleRest(todayKey)} style={{minHeight:48,padding:"10px 8px",borderRadius:12,background:isRestToday?pal.a1+"33":"rgba(255,255,255,0.03)",border:`1px solid ${isRestToday?pal.a1:pal.border}`,color:isRestToday?pal.a1:pal.sub,fontWeight:700,cursor:"pointer",fontSize:"clamp(11px,2.8vw,13px)"}}>
+              {isRestToday?t.restDayDone:t.restDay}
             </button>
-          </div>
+            <button onClick={()=>{if(freezeAvailable){toggleRest(todayKey);setFreezesUsed(p=>({...p,[thisMonth]:true}));}}} style={{minHeight:48,padding:"8px 10px",borderRadius:12,background:"rgba(255,255,255,0.02)",border:`1px solid ${freezeAvailable?pal.border:"rgba(255,255,255,0.04)"}`,color:freezeAvailable?pal.sub:pal.muted,fontWeight:700,cursor:freezeAvailable?"pointer":"default",fontSize:"clamp(10px,2.5vw,12px)",lineHeight:1.4,textAlign:"center"}}>
+              <div>{freezeAvailable?t.streakFreeze:t.freezeUsed}</div>
+              <div style={{fontWeight:400,marginTop:2,color:pal.muted,fontSize:10}}>{freezeAvailable?t.freezeOnceMonth:t.freezeRefillIn(daysUntilFreeze)}</div>
+            </button>
+          </div>}
 
           {!(log[yesterdayKey]&&Object.values(log[yesterdayKey]).some(x=>x?.done))&&(
-            <div onClick={()=>setDayModal(yesterdayKey)} style={{...cardStyle,padding:"10px 13px",marginBottom:10,cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderColor:"#f59e0b55"}}>
-              <span style={{fontSize:18,flexShrink:0}}>⏪</span>
+            <div onClick={()=>setDayModal(yesterdayKey)} style={{...cardStyle,padding:"11px 13px",marginBottom:10,cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderColor:"#f59e0b55",minHeight:52}}>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:"clamp(11px,3vw,13px)",fontWeight:700,color:"#f59e0b",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t.forgotYesterday}</div>
                 <div style={{fontSize:"clamp(10px,2.5vw,11px)",color:pal.muted}}>{t.forgotYesterdayDesc}</div>
               </div>
-              <span style={{color:pal.muted,flexShrink:0}}>›</span>
+              <span style={{color:pal.muted,flexShrink:0,fontSize:18}}>›</span>
             </div>
           )}
 
           <div style={cardStyle}>
             <h3 style={{margin:"0 0 10px",fontSize:"clamp(12px,3.2vw,14px)",color:pal.sub,fontWeight:600}}>{t.todayHabits}</h3>
-            {activities.length===0&&<p style={{color:pal.muted,fontSize:14}}>{t.noHabitsYet}</p>}
 
-            {/* Grouped by category */}
-            {CATEGORIES.map(cat=>{
-              const catActs = groups[cat] || [];
-              if (catActs.length === 0) return null;
-              return (
-                <div key={cat}>
-                  <CatHeader cat={cat} label={catLabel(cat)} pal={pal} count={catActs.length} />
-                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                    {catActs.map(a=>{
-                      const done=!!todayLog[a.id]?.done,s=streaks[a.id]||{current:0},gp=weekGoalProgress(a),ip=pulseId===a.id;
-                      return(
-                        <div key={a.id}>
-                          <div onClick={()=>toggle(a.id)} className="cl-habit-row" style={{padding:"10px 12px",borderRadius:12,cursor:"pointer",background:done?a.color+"22":"rgba(255,255,255,0.03)",border:`1px solid ${done?a.color+"66":pal.border}`,transition:"all 0.2s",transform:ip?"scale(1.02)":"scale(1)",boxShadow:ip?`0 0 20px ${a.color}55`:"none"}}>
-                            <span style={{fontSize:"clamp(15px,4vw,19px)",flexShrink:0}}>{a.icon||"⭕"}</span>
-                            <div style={{width:20,height:20,borderRadius:"50%",flexShrink:0,background:done?a.color:"rgba(255,255,255,0.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,transition:"all 0.2s",boxShadow:ip&&done?`0 0 12px ${a.color}`:"none"}}>{done?"✓":""}</div>
-                            <div style={{flex:1,minWidth:0}}>
-                              <div className="cl-habit-name" style={{color:done?a.color:tx}}>{a.name}</div>
-                              <div className="cl-habit-meta" style={{color:pal.muted}}>
-                                <span>🔥{t.days(s.current)} · {t.bestStreak} {t.days(s.best)}</span>
+            {activities.length===0
+              ? <EmptyState pal={pal} t={t} variant="checkin" onCTA={()=>setTab("habits")}/>
+              : CATEGORIES.map(cat=>{
+                  const catActs=groups[cat]||[];
+                  if(catActs.length===0)return null;
+                  return(
+                    <div key={cat}>
+                      <CatHeader cat={cat} label={catLabel(cat)} pal={pal} count={catActs.length}/>
+                      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:4}}>
+                        {catActs.map(a=>{
+                          const done=!!todayLog[a.id]?.done,s=streaks[a.id]||{current:0},gp=weekGoalProgress(a),ip=pulseId===a.id;
+                          // Long-press opens edit
+                          const lp=useLongPress(()=>setEditAct(a));
+                          return(
+                            <div key={a.id}>
+                              <div
+                                onClick={e=>{if(lp.didFire())return;toggle(a.id);}}
+                                {...lp}
+                                style={{display:"flex",alignItems:"center",gap:11,padding:"12px 13px",borderRadius:12,cursor:"pointer",background:done?a.color+"22":"rgba(255,255,255,0.03)",border:`1px solid ${done?a.color+"66":pal.border}`,transition:"all 0.2s",transform:ip?"scale(1.02)":"scale(1)",boxShadow:ip?`0 0 20px ${a.color}55`:"none",minHeight:52,userSelect:"none"}}
+                              >
+                                <span style={{fontSize:"clamp(16px,4.5vw,20px)",flexShrink:0}}>{a.icon||"⭕"}</span>
+                                <div style={{width:22,height:22,borderRadius:"50%",flexShrink:0,background:done?a.color:"rgba(255,255,255,0.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,transition:"all 0.2s",boxShadow:ip&&done?`0 0 12px ${a.color}`:"none"}}>{done?"✓":""}</div>
+                                <div style={{flex:1,minWidth:0}}>
+                                  <div className="cl-name" style={{color:done?a.color:tx}}>{a.name}</div>
+                                  <div className="cl-meta" style={{color:pal.muted}}>
+                                    <span>{t.days(s.current)} · {t.bestStreak} {t.days(s.best)}</span>
+                                  </div>
+                                </div>
+                                <div style={{fontSize:"clamp(11px,3vw,13px)",color:done?pal.a1:pal.muted,fontWeight:700,flexShrink:0}}>{done?t.done:t.tap}</div>
                               </div>
+                              {gp&&<div style={{margin:"2px 0 0",padding:"5px 13px",borderRadius:"0 0 10px 10px",background:"rgba(255,255,255,0.02)",border:`1px solid ${pal.border}`,borderTop:"none"}}>
+                                <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:10,color:pal.sub}}>{t.weeklyGoal}</span><span style={{fontSize:10,color:gp.done>=gp.goal?pal.a1:pal.sub,fontWeight:700}}>{gp.done}/{gp.goal}{t.perWeek}</span></div>
+                                <div style={{height:3,borderRadius:2,background:"rgba(255,255,255,0.06)"}}><div style={{height:"100%",borderRadius:2,background:gp.done>=gp.goal?pal.a1:a.color,width:gp.pct+"%",transition:"width 0.4s"}}/></div>
+                              </div>}
                             </div>
-                            <div style={{fontSize:"clamp(10px,2.8vw,12px)",color:done?a.color:pal.muted,fontWeight:700,flexShrink:0}}>{done?t.done:t.tap}</div>
-                          </div>
-                          {gp&&<div style={{margin:"3px 0 0",padding:"5px 12px",borderRadius:"0 0 10px 10px",background:"rgba(255,255,255,0.02)",border:`1px solid ${pal.border}`,borderTop:"none"}}>
-                            <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}><span style={{fontSize:10,color:pal.sub}}>{t.weeklyGoal}</span><span style={{fontSize:10,color:gp.done>=gp.goal?pal.a1:pal.sub,fontWeight:700}}>{gp.done}/{gp.goal}{t.perWeek}</span></div>
-                            <div style={{height:3,borderRadius:2,background:"rgba(255,255,255,0.06)"}}><div style={{height:"100%",borderRadius:2,background:gp.done>=gp.goal?pal.a1:a.color,width:gp.pct+"%",transition:"width 0.4s"}}/></div>
-                          </div>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })
+            }
           </div>
         </div>}
 
         {/* ── STATS ── */}
         {tab==="stats"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
-          <div className="cl-stats-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            {[["🔥",t.overallStreak,t.days(overallStreak)],["📅",t.activeDays,totalActive],["💪",t.completions,totalCompletions],["📆",t.bestDay,bestDow],["🏆",t.longestStreak,t.days(longestOverall)],["📈",t.bestWeek,`${mostActiveWeek()}/7`]].map(([e,l,v])=>(
-              <div key={l} style={{...cardStyle,padding:12}}>
-                <div style={{fontSize:"clamp(16px,4.5vw,19px)",marginBottom:2}}>{e}</div>
-                <div className="cl-stat-val" style={{color:pal.a1}}>{v}</div>
-                <div className="cl-stat-label" style={{color:pal.muted}}>{l}</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {[[t.overallStreak,t.days(overallStreak)],[t.activeDays,totalActive],[t.completions,totalCompletions],[t.bestDay,bestDow],[t.longestStreak,t.days(longestOverall)],[t.bestWeek,`${mostActiveWeek()}/7`]].map(([l,v])=>(
+              <div key={l} style={{...cardStyle,padding:14}}>
+                <div className="cl-sv" style={{color:pal.a1}}>{v}</div>
+                <div className="cl-sl" style={{color:pal.muted}}>{l}</div>
               </div>
             ))}
           </div>
           <div style={cardStyle}>
-            <h3 style={{margin:"0 0 10px",fontSize:13,color:pal.sub}}>{t.thisWeek} <span style={{fontSize:10,color:pal.muted}}>({t.tapToView})</span></h3>
+            <h3 style={{margin:"0 0 10px",fontSize:13,color:pal.sub}}>{t.thisWeek} <span style={{fontSize:10,color:pal.muted}}>· {t.tapToView}</span></h3>
             <div style={{display:"flex",alignItems:"flex-end",gap:5,height:90,overflowX:"auto"}}>
               {bars.map(b=>(
                 <div key={b.k} onClick={()=>setDayModal(b.k)} style={{flex:1,minWidth:30,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer"}}>
-                  <div style={{fontSize:10,color:pal.a1,fontWeight:700}}>{b.done>0?b.done:""}</div>
+                  <div style={{fontSize:10,color:pal.a1,fontWeight:700,minHeight:13}}>{b.done>0?b.done:""}</div>
                   <div style={{width:"100%",borderRadius:5,height:b.done===0?4:Math.max(8,b.done/maxBar*72),background:b.k===todayKey?pal.a1:b.done>0?pal.a1+"80":"rgba(255,255,255,0.06)",transition:"height 0.5s"}}/>
                   <div style={{fontSize:"clamp(9px,2.5vw,10px)",color:b.k===todayKey?pal.a1:pal.muted}}>{b.label}</div>
                 </div>
@@ -991,7 +1192,7 @@ export default function App(){
             <div style={{display:"flex",alignItems:"flex-end",gap:5,height:70}}>
               {months.map(m=>{const v=monthlyCounts[m]||0,max=Math.max(...months.map(x=>monthlyCounts[x]||0),1);return(
                 <div key={m} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-                  <div style={{fontSize:9,color:pal.a1,fontWeight:700}}>{v||""}</div>
+                  <div style={{fontSize:9,color:pal.a1,fontWeight:700,minHeight:12}}>{v||""}</div>
                   <div style={{width:"100%",borderRadius:4,height:v===0?4:Math.max(5,v/max*50),background:v>0?pal.a1+"99":"rgba(255,255,255,0.06)",transition:"height 0.4s"}}/>
                   <div style={{fontSize:"clamp(8px,2vw,9px)",color:pal.muted}}>{m.slice(5)}</div>
                 </div>
@@ -999,25 +1200,25 @@ export default function App(){
             </div>
           </div>
 
-          {/* Habit Streaks — grouped by category */}
+          {/* Habit streaks — grouped */}
           <div style={cardStyle}>
             <h3 style={{margin:"0 0 6px",fontSize:13,color:pal.sub}}>{t.habitStreaks}</h3>
             {activities.length===0&&<p style={{color:pal.muted,fontSize:13}}>—</p>}
             {CATEGORIES.map(cat=>{
-              const catActs = groups[cat] || [];
-              if (catActs.length === 0) return null;
-              return (
+              const catActs=groups[cat]||[];
+              if(catActs.length===0)return null;
+              return(
                 <div key={cat}>
-                  <CatHeader cat={cat} label={catLabel(cat)} pal={pal} count={catActs.length} />
+                  <CatHeader cat={cat} label={catLabel(cat)} pal={pal} count={catActs.length}/>
                   {catActs.map(a=>{
                     const s=streaks[a.id]||{current:0,best:0};
                     const pct=s.best>0?Math.round(s.current/s.best*100):0;
                     const cr=Math.round(Object.values(log).filter(d=>d[a.id]?.done).length/Math.max(Object.keys(log).length,1)*100);
                     return(
                       <div key={a.id} style={{marginBottom:12}}>
-                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,gap:6}}>
-                          <span style={{fontWeight:600,fontSize:"clamp(11px,3vw,13px)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0}}>{a.icon} <span style={{color:a.color}}>●</span> {a.name}</span>
-                          <span style={{fontSize:"clamp(9px,2.5vw,11px)",color:pal.sub,flexShrink:0}}>🔥{t.days(s.current)} · {t.days(s.best)} · {cr}%</span>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,gap:6}}>
+                          <span style={{fontWeight:600,fontSize:"clamp(11px,3vw,13px)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0,color:a.color}}>{a.icon} {a.name}</span>
+                          <span style={{fontSize:"clamp(9px,2.5vw,11px)",color:pal.sub,flexShrink:0}}>{t.days(s.current)} · {t.days(s.best)} · {cr}%</span>
                         </div>
                         <div style={{height:5,borderRadius:3,background:"rgba(255,255,255,0.06)"}}><div style={{height:"100%",borderRadius:3,background:a.color,width:pct+"%",transition:"width 0.5s"}}/></div>
                       </div>
@@ -1028,91 +1229,89 @@ export default function App(){
             })}
           </div>
 
+          {/* Heatmap with month labels */}
           <div style={cardStyle}>
-            <h3 style={{margin:"0 0 8px",fontSize:13,color:pal.sub}}>{t.heatmap} <span style={{fontSize:10,color:pal.muted}}>({t.tapCell})</span></h3>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(16,1fr)",gap:2}}>
-              {Array.from({length:16},(_,w)=>Array.from({length:7},(_,d)=>{const cell=heatmap[w*7+d];if(!cell)return<div key={`${w}-${d}`}/>;const alpha=cell.done===0?0.06:0.15+cell.done/Math.max(activities.length,1)*0.85;return<div key={cell.k} onClick={()=>setDayModal(cell.k)} style={{aspectRatio:"1",borderRadius:2,cursor:"pointer",background:cell.isRest?`rgba(${hexToRgb(pal.a1)},0.15)`:cell.done===0?"rgba(255,255,255,0.06)":`rgba(${hexToRgb(pal.a1)},${alpha})`,border:cell.k===todayKey?`1px solid ${pal.a1}`:cell.isRest?`1px solid ${pal.a1}44`:"none"}}/>; }))}
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:5,marginTop:7,fontSize:10,color:pal.muted,flexWrap:"wrap"}}>
-              <span>{t.less}</span>{[0.06,0.3,0.5,0.7,0.95].map(a=><div key={a} style={{width:10,height:10,borderRadius:2,background:`rgba(${hexToRgb(pal.a1)},${a})`}}/>)}<span>{t.more}</span>
-            </div>
+            <h3 style={{margin:"0 0 10px",fontSize:13,color:pal.sub}}>{t.heatmap} <span style={{fontSize:10,color:pal.muted}}>· {t.tapCell}</span></h3>
+            <HeatmapGrid heatmap={heatmap} activities={activities} pal={pal} t={t} todayKey={todayKey} onCellClick={setDayModal}/>
           </div>
         </div>}
 
         {/* ── HABITS ── */}
         {tab==="habits"&&<div style={cardStyle}>
-          <h3 style={{margin:"0 0 12px",fontSize:14,color:pal.sub}}>{t.myHabits}</h3>
-          {/* Category picker for new habit */}
+          <h3 style={{margin:"0 0 14px",fontSize:14,color:pal.sub,fontWeight:700}}>{t.myHabits}</h3>
+          {/* Category picker */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10}}>
             {CATEGORIES.map(c=>(
-              <button key={c} onClick={()=>setNewCat(c)} style={{padding:"7px 8px",borderRadius:10,border:`1px solid ${newCat===c?pal.a1:pal.border}`,background:newCat===c?pal.a1+"22":"transparent",color:newCat===c?pal.a1:pal.sub,cursor:"pointer",fontWeight:600,fontSize:"clamp(10px,2.8vw,12px)",display:"flex",alignItems:"center",gap:5}}>
-                <span style={{fontSize:"clamp(12px,3.5vw,15px)"}}>{catEmoji(c)}</span>
+              <button key={c} onClick={()=>setNewCat(c)} style={{minHeight:44,padding:"8px 10px",borderRadius:10,border:`1px solid ${newCat===c?pal.a1:pal.border}`,background:newCat===c?pal.a1+"22":"transparent",color:newCat===c?pal.a1:pal.sub,cursor:"pointer",fontWeight:600,fontSize:"clamp(11px,2.8vw,13px)",display:"flex",alignItems:"center",gap:6}}>
+                <span style={{fontSize:16,flexShrink:0}}>{catEmoji(c)}</span>
                 <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{catLabel(c)}</span>
               </button>
             ))}
           </div>
-          <div style={{display:"flex",gap:8,marginBottom:12}}>
-            <input value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addActivity()} placeholder={t.newHabitPlaceholder} style={{flex:1,padding:"9px 12px",borderRadius:10,background:"rgba(255,255,255,0.06)",border:`1px solid ${pal.border}`,color:tx,fontSize:"clamp(12px,3.5vw,14px)",outline:"none",minWidth:0}}/>
-            <button onClick={addActivity} style={{padding:"9px 14px",borderRadius:10,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:"clamp(12px,3.5vw,14px)",whiteSpace:"nowrap",flexShrink:0}}>{t.add}</button>
+          <div style={{display:"flex",gap:8,marginBottom:14}}>
+            <input ref={newHabitInputRef} value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addActivity()} placeholder={t.newHabitPlaceholder} style={{flex:1,padding:"11px 13px",borderRadius:10,background:"rgba(255,255,255,0.06)",border:`1px solid ${pal.border}`,color:tx,fontSize:"clamp(12px,3.5vw,14px)",outline:"none",minWidth:0,minHeight:48}}/>
+            <button onClick={addActivity} style={{padding:"11px 18px",borderRadius:10,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:"clamp(13px,3.5vw,15px)",whiteSpace:"nowrap",flexShrink:0,minHeight:48}}>{t.add}</button>
           </div>
-          <div style={{fontSize:11,color:pal.muted,marginBottom:9}}>{t.swipeToDelete}</div>
+          <div style={{fontSize:11,color:pal.muted,marginBottom:12,display:"flex",alignItems:"center",gap:5}}>
+            <span style={{opacity:0.6}}>←</span> {t.swipeToDelete}
+          </div>
 
-          {activities.length===0&&<p style={{color:pal.muted,fontSize:13}}>{t.noHabitsYet}</p>}
-
-          {/* Grouped by category */}
-          {CATEGORIES.map(cat=>{
-            const catActs = groups[cat] || [];
-            if (catActs.length === 0) return null;
-            return (
-              <div key={cat}>
-                <CatHeader cat={cat} label={catLabel(cat)} pal={pal} count={catActs.length} />
-                <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  {catActs.map(a=>{
-                    const gp=weekGoalProgress(a);
-                    return(
-                      <SwipeRow key={a.id} onDelete={()=>setDeleteAct(a)}>
-                        <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(255,255,255,0.03)",border:`1px solid ${pal.border}`}}>
-                          <div style={{display:"flex",alignItems:"center",gap:8}}>
-                            <span style={{fontSize:"clamp(14px,4vw,18px)",flexShrink:0}}>{a.icon||"⭕"}</span>
-                            <div style={{width:8,height:8,borderRadius:"50%",background:a.color,flexShrink:0}}/>
-                            <span style={{flex:1,fontWeight:600,fontSize:"clamp(11px,3vw,13px)",color:tx,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0}}>{a.name}</span>
-                            {a.goalType==="days"&&<span style={{fontSize:10,color:pal.a1,fontWeight:600,flexShrink:0}}>{a.goalVal}{t.perWeek}</span>}
-                            <button onClick={()=>setEditAct(a)} style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${pal.border}`,color:tx,borderRadius:8,padding:"3px 8px",cursor:"pointer",fontSize:"clamp(10px,2.5vw,11px)",flexShrink:0}}>{t.edit}</button>
-                          </div>
-                          {gp&&<div style={{marginTop:5}}><div style={{height:3,borderRadius:2,background:"rgba(255,255,255,0.06)"}}><div style={{height:"100%",borderRadius:2,background:gp.done>=gp.goal?pal.a1:a.color,width:gp.pct+"%",transition:"width 0.4s"}}/></div><div style={{fontSize:10,color:pal.muted,marginTop:2}}>{gp.done}/{gp.goal} {t.thisWeekCount}</div></div>}
-                        </div>
-                      </SwipeRow>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
+          {activities.length===0
+            ? <EmptyState pal={pal} t={t} variant="habits" onCTA={()=>newHabitInputRef.current?.focus()}/>
+            : CATEGORIES.map(cat=>{
+                const catActs=groups[cat]||[];
+                if(catActs.length===0)return null;
+                return(
+                  <div key={cat}>
+                    <CatHeader cat={cat} label={catLabel(cat)} pal={pal} count={catActs.length}/>
+                    <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:4}}>
+                      {catActs.map(a=>{
+                        const gp=weekGoalProgress(a);
+                        return(
+                          <SwipeRow key={a.id} onDelete={()=>setDeleteAct(a)}>
+                            <div style={{padding:"12px 13px",borderRadius:12,background:"rgba(255,255,255,0.03)",border:`1px solid ${pal.border}`,minHeight:52}}>
+                              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                <span style={{fontSize:"clamp(14px,4vw,18px)",flexShrink:0}}>{a.icon||"⭕"}</span>
+                                <div style={{width:8,height:8,borderRadius:"50%",background:a.color,flexShrink:0}}/>
+                                <span style={{flex:1,fontWeight:600,fontSize:"clamp(11px,3vw,13px)",color:tx,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0}}>{a.name}</span>
+                                {a.goalType==="days"&&<span style={{fontSize:10,color:pal.a1,fontWeight:600,flexShrink:0}}>{a.goalVal}{t.perWeek}</span>}
+                                <button onClick={()=>setEditAct(a)} style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${pal.border}`,color:tx,borderRadius:8,padding:"7px 13px",cursor:"pointer",fontSize:"clamp(11px,2.5vw,12px)",flexShrink:0,minHeight:42,fontWeight:600}}>{t.edit}</button>
+                              </div>
+                              {gp&&<div style={{marginTop:6}}><div style={{height:3,borderRadius:2,background:"rgba(255,255,255,0.06)"}}><div style={{height:"100%",borderRadius:2,background:gp.done>=gp.goal?pal.a1:a.color,width:gp.pct+"%",transition:"width 0.4s"}}/></div><div style={{fontSize:10,color:pal.muted,marginTop:2}}>{gp.done}/{gp.goal} {t.thisWeekCount}</div></div>}
+                            </div>
+                          </SwipeRow>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })
+          }
         </div>}
 
         {/* ── SHARE ── */}
         {tab==="share"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
           <div style={cardStyle}>
             <h3 style={{margin:"0 0 5px",fontSize:14,color:pal.sub}}>{t.shareProgress}</h3>
-            <p style={{margin:"0 0 14px",fontSize:12,color:pal.muted}}>{t.shareDesc}</p>
-            <button onClick={renderShare} style={{width:"100%",padding:"12px",borderRadius:12,background:`linear-gradient(135deg,${pal.a1},${pal.a2})`,border:"none",color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer"}}>{t.generateCard}</button>
+            <p style={{margin:"0 0 16px",fontSize:12,color:pal.muted}}>{t.shareDesc}</p>
+            <button onClick={renderShare} style={{width:"100%",minHeight:50,borderRadius:12,background:`linear-gradient(135deg,${pal.a1},${pal.a2})`,border:"none",color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer"}}>{t.generateCard}</button>
           </div>
           <canvas ref={canvasRef} style={{display:"none"}}/>
           {shareReady&&<div style={cardStyle}>
-            <img src={canvasRef.current.toDataURL()} alt="Stats" style={{width:"100%",borderRadius:12,marginBottom:12}}/>
+            <img src={canvasRef.current.toDataURL()} alt="Stats" style={{width:"100%",borderRadius:12,marginBottom:14}}/>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-              <button onClick={downloadPNG} style={{padding:"10px",borderRadius:10,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>{t.download}</button>
-              <button onClick={copyImg} style={{padding:"10px",borderRadius:10,background:"rgba(255,255,255,0.08)",border:`1px solid ${pal.border}`,color:tx,fontWeight:700,cursor:"pointer",fontSize:13}}>{t.copy}</button>
+              <button onClick={downloadPNG} style={{minHeight:48,borderRadius:10,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:14}}>{t.download}</button>
+              <button onClick={copyImg} style={{minHeight:48,borderRadius:10,background:"rgba(255,255,255,0.08)",border:`1px solid ${pal.border}`,color:tx,fontWeight:700,cursor:"pointer",fontSize:14}}>{t.copy}</button>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-              <button onClick={shareTwitter} style={{padding:"10px",borderRadius:10,background:"#1da1f2",border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>𝕏 Twitter</button>
-              <button onClick={shareWhatsApp} style={{padding:"10px",borderRadius:10,background:"#25d366",border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>💬 WhatsApp</button>
+              <button onClick={shareTwitter} style={{minHeight:48,borderRadius:10,background:"#1da1f2",border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:14}}>𝕏 Twitter</button>
+              <button onClick={shareWhatsApp} style={{minHeight:48,borderRadius:10,background:"#25d366",border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:14}}>WhatsApp</button>
             </div>
           </div>}
         </div>}
 
         {/* ── SETTINGS ── */}
-        {tab==="settings"&&<SettingsPanel palKey={palKey} setPalKey={setPalKey} lang={lang} setLang={setLang} notifPerm={notifPerm} onEnableNotif={enableNotifications} pal={pal} t={t}/>}
+        {tab==="settings"&&<SettingsPanel palKey={palKey} setPalKey={setPalKey} lang={lang} setLang={setLang} notifPerm={notifPerm} onEnableNotif={enableNotifications} soundEnabled={soundEnabled} setSoundEnabled={setSoundEnabled} pal={pal} t={t}/>}
 
       </div>
     </div>
