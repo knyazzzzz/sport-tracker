@@ -352,6 +352,76 @@ const TRANSLATIONS = {
     madeWith:"Feito com Chainly", habitStreaksCard:"Sequências", last4weeks:"Últimas 4 semanas",
     copied:"Copiado!", copyFail:"Por favor, faça o download.", days:(n)=>`${n}d`,
   },
+  ru: {
+    name:"Русский", flag:"🇷🇺",
+    appName:"Chainly",
+    today:"Сегодня", yesterday:"Вчера",
+    checkin:"Отметка", stats:"Статистика", habits:"Привычки", share:"Поделиться", settings:"Настройки",
+    todayHabits:"Привычки на сегодня",
+    noHabitsYet:"Пока нет привычек",
+    noHabitsDesc:"Начни отслеживать всё, что хочешь делать каждый день",
+    addFirstHabit:"+ Добавить привычку",
+    streak:"Серия", active:"Активных", week:"Неделя",
+    restDay:"День отдыха", restDayDone:"Отдых ✓",
+    streakFreeze:"Заморозка", freezeUsed:"Заморозка использована",
+    freezeRefillIn:(d)=>`Обновится через ${d}д`,
+    freezeOnceMonth:"Раз в месяц",
+    forgotYesterday:"Забыл вчера?",
+    forgotYesterdayDesc:"Нажми, чтобы отметить вчерашние привычки",
+    done:"Готово", tap:"Отметить",
+    weeklyGoal:"Цель на неделю", bestStreak:"рекорд",
+    overallStreak:"Текущая серия", activeDays:"Активных дней",
+    completions:"Выполнений", bestDay:"Лучший день",
+    longestStreak:"Лучшая серия", bestWeek:"Лучшая неделя",
+    thisWeek:"Эта неделя", tapToView:"нажми для просмотра",
+    monthlyActiveDays:"Активные дни по месяцам",
+    habitStreaks:"Серии привычек", heatmap:"Активность", tapCell:"нажми на ячейку",
+    less:"Меньше", more:"Больше", rest:"Отдых",
+    myHabits:"Мои привычки", swipeToDelete:"Свайп влево для удаления",
+    newHabitPlaceholder:"Название новой привычки...",
+    add:"Добавить", edit:"Изм.",
+    streakReminders:"Напоминания о сериях",
+    notifDesc:"Получай уведомление в 20:00, если серия под угрозой.",
+    notifEnabled:"Уведомления включены", enableNotif:"Включить уведомления",
+    shareProgress:"Поделись своими успехами",
+    shareDesc:"Создай карточку со статистикой и отправь друзьям!",
+    generateCard:"Создать карточку",
+    download:"Скачать", copy:"Копировать",
+    noGoal:"Без цели", daysPerWeek:"Дней/неделю", perWeek:"×/нед", thisWeekCount:"на этой неделе",
+    viewOnly:"Только просмотр", yesterdayLog:"Вчера — ещё можно отметить!",
+    markRestDay:"Отметить как день отдыха", restProtected:"День отдыха (серия защищена)",
+    restDayNotApplicable:"Дни отдыха только для спортивных привычек",
+    addNote:"Добавить заметку...", editHabit:"Редактировать привычку",
+    icon:"Иконка", color:"Цвет", cancel:"Отмена", save:"Сохранить", deleteHabit:"Удалить",
+    deleteConfirmTitle:(n)=>`Удалить «${n}»?`,
+    deleteConfirmBody:"Привычка и вся её история будут удалены навсегда.",
+    milestoneBang:(n)=>`${n} дней подряд!`, milestoneStreak:"серия", nice:"Отлично!",
+    weeklyReview:"Итоги недели", continue:"Продолжить",
+    category:"Категория",
+    catSport:"Спорт", catMind:"Разум", catHealth:"Здоровье", catOther:"Другое",
+    catSportDesc:"Бег, зал, велосипед…",
+    catMindDesc:"Чтение, медитация…",
+    catHealthDesc:"Вода, сон, питание…",
+    catOtherDesc:"Любая другая привычка",
+    appearance:"Внешний вид", language:"Язык", theme:"Тема", notifications:"Уведомления",
+    settingsTitle:"Настройки",
+    soundFx:"Звуковые эффекты", soundOn:"Вкл", soundOff:"Выкл",
+    next:"Далее →", letsGo:"Поехали!", back:"Назад",
+    todayProgress:(d,t)=>`${d} из ${t} выполнено`,
+    longPressHint:"Удержи для редактирования",
+    onboarding:[
+      {emoji:"⛓️",title:"Добро пожаловать в Chainly",body:"Формируй ежедневные привычки, отслеживай серии и сохраняй постоянство. Для спорта, сна, чтения — всего, что хочешь делать каждый день."},
+      {emoji:"✅",title:"Ежедневная отметка",body:"Каждый день нажимай на привычки, чтобы отметить их выполнение. Всего 10 секунд утром или вечером."},
+      {emoji:"🏷️",title:"Категории привычек",body:"При создании выбери категорию: Спорт, Разум, Здоровье или Другое. Спортивные привычки поддерживают дни отдыха для защиты серии."},
+      {emoji:"🔥",title:"Серии и защита",body:"Выполняй привычки каждый день, чтобы строить серии. Используй дни отдыха (только Спорт) или ежемесячную заморозку, когда жизнь вмешивается."},
+      {emoji:"🏆",title:"Рекорды и цели",body:"Ставь еженедельные цели для каждой привычки, зарабатывай значки за 7, 30, 100+ дней и делись карточкой статистики с друзьями."},
+    ],
+    weeklyReviewMsg:["Продолжай идти вперёд! 💪","Хорошая неделя, держи серию!","Отличная стабильность на этой неделе!","Выдающаяся неделя, ты в ударе!","Идеальная неделя, ты просто огонь!"],
+    shareText:(s,t,w)=>`${s}-дневная серия в Chainly! ${t} активных дней #Chainly`,
+    shareWa:(s,t,w)=>`Chainly\n${s}д серия\n${t} активных дней\n${w}/7 на этой неделе`,
+    madeWith:"Сделано в Chainly", habitStreaksCard:"Серии привычек", last4weeks:"Последние 4 недели",
+    copied:"Скопировано!", copyFail:"Пожалуйста, скачайте файл.", days:(n)=>`${n}д`,
+  },
 };
 
 const CATEGORIES = ["sport","mind","health","other"];
@@ -362,7 +432,7 @@ const PALETTES = {
   indigo: {name:"Indigo", a1:"#6366f1",a2:"#818cf8",bg0:"#0d0d1f",bg1:"#111128",bg2:"#161630",card:"rgba(255,255,255,0.04)",border:"rgba(99,102,241,0.15)",muted:"#3a3a6a",sub:"#6666aa"},
   rose:   {name:"Rose",   a1:"#f43f5e",a2:"#fb7185",bg0:"#1a0a0e",bg1:"#200d12",bg2:"#2a1018",card:"rgba(255,255,255,0.04)",border:"rgba(244,63,94,0.15)",muted:"#5a2a35",sub:"#8a5560"},
   amber:  {name:"Amber",  a1:"#f59e0b",a2:"#fbbf24",bg0:"#1a1400",bg1:"#1f1800",bg2:"#2a2000",card:"rgba(255,255,255,0.04)",border:"rgba(245,158,11,0.15)",muted:"#5a4800",sub:"#8a7020"},
-  light:  {name:"Light",  a1:"#10b981",a2:"#059669",bg0:"#f0faf5",bg1:"#e8f5ef",bg2:"#d8efe8",card:"rgba(0,0,0,0.04)",border:"rgba(16,185,129,0.2)",muted:"#6aaa88",sub:"#4a8a68",text:"#111"},
+  light:  {name:"Light",  a1:"#6366f1",a2:"#818cf8",bg0:"#ffffff",bg1:"#f8f8fc",bg2:"#f0f0f8",card:"rgba(0,0,0,0.04)",border:"rgba(99,102,241,0.18)",muted:"#a0a0c0",sub:"#6060a0",text:"#111827"},
 };
 const ACT_COLORS = ["#10b981","#f59e0b","#6366f1","#ef4444","#3b82f6","#ec4899","#8b5cf6","#14b8a6","#f97316","#84cc16"];
 const ACT_ICONS  = ["🏃","🚴","🏊","💪","🧘","📚","💧","😴","🥗","🎯","🧠","🚶","⚽","🎸","✍️","🌿"];
@@ -408,8 +478,15 @@ function playCheckSound(isDone){
 function useLongPress(callback, ms=480, {onStart, onEnd}={}){
   const timer=useRef(null);
   const fired=useRef(false);
-  const start=useCallback(()=>{
+  const startPos=useRef(null);
+  const start=useCallback((e)=>{
     fired.current=false;
+    // Record starting touch position to detect scroll
+    if(e?.touches){
+      startPos.current={x:e.touches[0].clientX, y:e.touches[0].clientY};
+    } else {
+      startPos.current=null;
+    }
     if(onStart)onStart();
     timer.current=setTimeout(()=>{
       fired.current=true;
@@ -420,11 +497,19 @@ function useLongPress(callback, ms=480, {onStart, onEnd}={}){
   },[callback,ms]);
   const cancel=useCallback(()=>{
     if(timer.current){clearTimeout(timer.current);timer.current=null;}
+    startPos.current=null;
     if(onEnd)onEnd();
   },[]);
+  // Cancel long-press as soon as finger moves more than 8px (= user is scrolling)
+  const move=useCallback((e)=>{
+    if(!timer.current||!startPos.current||!e?.touches)return;
+    const dx=e.touches[0].clientX-startPos.current.x;
+    const dy=e.touches[0].clientY-startPos.current.y;
+    if(Math.abs(dx)>8||Math.abs(dy)>8)cancel();
+  },[cancel]);
   return {
     onMouseDown:start, onMouseUp:cancel, onMouseLeave:cancel,
-    onTouchStart:start, onTouchEnd:cancel, onTouchCancel:cancel,
+    onTouchStart:start, onTouchMove:move, onTouchEnd:cancel, onTouchCancel:cancel,
     didFire:()=>fired.current,
   };
 }
