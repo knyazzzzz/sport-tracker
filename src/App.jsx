@@ -1216,6 +1216,7 @@ export default function App(){
   const last7=Array.from({length:7},(_,i)=>toKey(daysAgo(i)));
   const weeklyDone=last7.filter(k=>log[k]&&Object.values(log[k]).some(x=>x?.done)).length;
   const totalCompletions=Object.values(log).reduce((s,d)=>s+Object.values(d).filter(x=>x?.done).length,0);
+  const locale=LANG_LOCALE[lang]||"en-US";
   const dowCounts=Array(7).fill(0);Object.keys(log).forEach(k=>{if(Object.values(log[k]).some(x=>x?.done)){dowCounts[new Date(k+"T12:00:00").getDay()]++;}});
   const bestDow=new Date(2023,0,1+dowCounts.indexOf(Math.max(...dowCounts))).toLocaleDateString(locale,{weekday:"short"}).replace(".","");
   const months=Array.from({length:6},(_,i)=>{const d=new Date();d.setMonth(d.getMonth()-5+i);return d.toISOString().slice(0,7);});
@@ -1249,7 +1250,6 @@ export default function App(){
   function weekGoalProgress(a){if(a.goalType!=="days")return null;const done=last7.filter(k=>log[k]?.[a.id]?.done).length;return{done,goal:a.goalVal,pct:Math.min(100,Math.round(done/a.goalVal*100))};}
 
   const heatmap=Array.from({length:112},(_,i)=>{const d=daysAgo(111-i),k=toKey(d);return{k,done:log[k]?Object.values(log[k]).filter(x=>x?.done).length:0,isRest:log[k]?.__rest__?.done};});
-  const locale=LANG_LOCALE[lang]||"en-US";
   const bars=Array.from({length:7},(_,i)=>{const d=daysAgo(6-i),k=toKey(d);return{label:d.toLocaleDateString(locale,{weekday:"short"}).replace(".",""),done:log[k]?Object.values(log[k]).filter(x=>x?.done).length:0,k};});
   const maxBar=Math.max(...bars.map(b=>b.done),1);
   const groups=groupByCategory(activities);
