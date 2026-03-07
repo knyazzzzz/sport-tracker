@@ -432,11 +432,13 @@ const PALETTES = {
   indigo: {name:"Indigo", a1:"#6366f1",a2:"#818cf8",bg0:"#0d0d1f",bg1:"#111128",bg2:"#161630",card:"rgba(255,255,255,0.04)",border:"rgba(99,102,241,0.15)",muted:"#3a3a6a",sub:"#6666aa"},
   rose:   {name:"Rose",   a1:"#f43f5e",a2:"#fb7185",bg0:"#1a0a0e",bg1:"#200d12",bg2:"#2a1018",card:"rgba(255,255,255,0.04)",border:"rgba(244,63,94,0.15)",muted:"#5a2a35",sub:"#8a5560"},
   amber:  {name:"Amber",  a1:"#f59e0b",a2:"#fbbf24",bg0:"#1a1400",bg1:"#1f1800",bg2:"#2a2000",card:"rgba(255,255,255,0.04)",border:"rgba(245,158,11,0.15)",muted:"#5a4800",sub:"#8a7020"},
-  light:  {name:"Light",  a1:"#6366f1",a2:"#818cf8",bg0:"#ffffff",bg1:"#f8f8fc",bg2:"#f0f0f8",card:"rgba(0,0,0,0.04)",border:"rgba(99,102,241,0.18)",muted:"#a0a0c0",sub:"#6060a0",text:"#111827"},
+  dark:   {name:"Dark",   a1:"#94a3b8",a2:"#cbd5e1",bg0:"#000000",bg1:"#0f0f0f",bg2:"#1a1a1a",card:"rgba(255,255,255,0.05)",border:"rgba(255,255,255,0.10)",muted:"#3a3a3a",sub:"#6b7280",text:"#f1f5f9"},
 };
 const ACT_COLORS = ["#10b981","#f59e0b","#6366f1","#ef4444","#3b82f6","#ec4899","#8b5cf6","#14b8a6","#f97316","#84cc16"];
 const ACT_ICONS  = ["🏃","🚴","🏊","💪","🧘","📚","💧","😴","🥗","🎯","🧠","🚶","⚽","🎸","✍️","🌿"];
 const DAYS_EN = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+// BCP-47 locale for each supported language — used in toLocaleDateString
+const LANG_LOCALE = {en:"en-US",es:"es-ES",zh:"zh-CN",ar:"ar-SA",pt:"pt-BR",ru:"ru-RU"};
 const MILESTONES = [7,14,30,60,100,200,365];
 
 function toKey(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
@@ -637,15 +639,16 @@ function MilestoneToast({milestone,actName,onClose,pal,t}){
 }
 
 // ── WeeklyReview ──────────────────────────────────────────────────────────────
-function WeeklyReview({log,activities,streaks,onClose,pal,t}){
+function WeeklyReview({log,activities,streaks,onClose,pal,t,lang}){
   const tx=pal.text||"#fff";
+  const locale=LANG_LOCALE[lang]||"en-US";
   const last7=Array.from({length:7},(_,i)=>toKey(daysAgo(i)));
   const activeDays=last7.filter(k=>log[k]&&Object.values(log[k]).some(x=>x?.done)).length;
   const totalDone=last7.reduce((s,k)=>s+Object.values(log[k]||{}).filter(x=>x?.done).length,0);
   const msg=t.weeklyReviewMsg[Math.min(Math.floor(activeDays/7*t.weeklyReviewMsg.length),t.weeklyReviewMsg.length-1)];
   return(
     <div style={{color:tx}}>
-      <div style={{textAlign:"center",marginBottom:18}}><div style={{fontSize:40,marginBottom:6}}>📋</div><div style={{fontWeight:800,fontSize:19}}>{t.weeklyReview}</div><div style={{color:pal.sub,fontSize:12,marginTop:3}}>{new Date().toLocaleDateString(undefined,{month:"long",day:"numeric"})}</div></div>
+      <div style={{textAlign:"center",marginBottom:18}}><div style={{fontSize:40,marginBottom:6}}>📋</div><div style={{fontWeight:800,fontSize:19}}>{t.weeklyReview}</div><div style={{color:pal.sub,fontSize:12,marginTop:3}}>{new Date().toLocaleDateString(locale,{month:"long",day:"numeric"})}</div></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
         {[["📅",t.activeDays,`${activeDays}/7`],["💪",t.completions,totalDone],["🔥",t.longestStreak,Math.max(...activities.map(a=>(streaks[a.id]||{}).current||0),0)+"d"],["🎯",t.habits,activities.length]].map(([e,l,v])=>(
           <div key={l} style={{background:pal.card,border:`1px solid ${pal.border}`,borderRadius:14,padding:12,textAlign:"center"}}>
@@ -660,7 +663,7 @@ function WeeklyReview({log,activities,streaks,onClose,pal,t}){
 }
 
 // ── DayModal ──────────────────────────────────────────────────────────────────
-function DayModal({dateKey,activities,log,onClose,onToggle,onNote,onRestDay,pal,t}){
+function DayModal({dateKey,activities,log,onClose,onToggle,onNote,onRestDay,pal,t,lang}){
   const entry=log[dateKey]||{};
   const isToday=dateKey===today(),isYesterday=dateKey===yesterday(),canEdit=isToday||isYesterday;
   const d=new Date(dateKey+"T12:00:00");
@@ -668,13 +671,14 @@ function DayModal({dateKey,activities,log,onClose,onToggle,onNote,onRestDay,pal,
   const hasSport=activities.some(a=>a.category==="sport");
   const tx=pal.text||"#fff";
   const groups=groupByCategory(activities);
+  const locale=LANG_LOCALE[lang]||"en-US";
   return(
     <SlideModal onClose={onClose} pal={pal} fullscreen>
       {close=>(
         <div style={{color:tx}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
             <div style={{flex:1,minWidth:0,paddingRight:10}}>
-              <div style={{fontWeight:800,fontSize:15,wordBreak:"break-word"}}>{d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</div>
+              <div style={{fontWeight:800,fontSize:15,wordBreak:"break-word"}}>{d.toLocaleDateString(locale,{weekday:"long",month:"long",day:"numeric"})}</div>
               <div style={{fontSize:12,color:isToday?pal.a1:isYesterday?"#f59e0b":pal.muted,fontWeight:600,marginTop:2}}>{isToday?t.today:isYesterday?t.yesterdayLog:t.viewOnly}</div>
             </div>
             <button onClick={close} style={{background:"transparent",border:"none",color:pal.sub,fontSize:22,cursor:"pointer",flexShrink:0,minWidth:40,minHeight:40}}>✕</button>
@@ -918,8 +922,8 @@ function NotifButton({perm, onRequest, pal, t}){
 // ── Settings Panel ─────────────────────────────────────────────────────────────
 function SettingsPanel({palKey,setPalKey,lang,setLang,notifPerm,onEnableNotif,soundEnabled,setSoundEnabled,pal,t}){
   const tx=pal.text||"#fff";
-  const palNames={green:"Forest",indigo:"Indigo",rose:"Rose",amber:"Amber",light:"Light"};
-  const palEmoji={green:"🌲",indigo:"🌌",rose:"🌹",amber:"🌅",light:"☀️"};
+  const palNames={green:"Forest",indigo:"Indigo",rose:"Rose",amber:"Amber",dark:"Dark"};
+  const palEmoji={green:"🌲",indigo:"🌌",rose:"🌹",amber:"🌅",dark:"🌑"};
   return(
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
       {/* Theme */}
@@ -1145,7 +1149,7 @@ export default function App(){
 
   // Initialize lang and palette immediately from storage — fixes onboarding language
   const [lang,setLang]=useState(()=>lsGet("st_lang",detectLang()));
-  const [palKey,setPalKey]=useState(()=>lsGet("st_palette",prefersDark?"green":"light"));
+  const [palKey,setPalKey]=useState(()=>lsGet("st_palette",prefersDark?"dark":"green"));
 
   const [loaded,setLoaded]=useState(false);
   const [tab,setTab]=useState("checkin");
@@ -1213,7 +1217,7 @@ export default function App(){
   const weeklyDone=last7.filter(k=>log[k]&&Object.values(log[k]).some(x=>x?.done)).length;
   const totalCompletions=Object.values(log).reduce((s,d)=>s+Object.values(d).filter(x=>x?.done).length,0);
   const dowCounts=Array(7).fill(0);Object.keys(log).forEach(k=>{if(Object.values(log[k]).some(x=>x?.done)){dowCounts[new Date(k+"T12:00:00").getDay()]++;}});
-  const bestDow=DAYS_EN[dowCounts.indexOf(Math.max(...dowCounts))];
+  const bestDow=new Date(2023,0,1+dowCounts.indexOf(Math.max(...dowCounts))).toLocaleDateString(locale,{weekday:"short"}).replace(".","");
   const months=Array.from({length:6},(_,i)=>{const d=new Date();d.setMonth(d.getMonth()-5+i);return d.toISOString().slice(0,7);});
   const monthlyCounts={};Object.keys(log).forEach(k=>{if(Object.values(log[k]).some(x=>x?.done)){const m=k.slice(0,7);monthlyCounts[m]=(monthlyCounts[m]||0)+1;}});
   const longestOverall=Math.max(...activities.map(a=>(streaks[a.id]||{}).best||0),0);
@@ -1245,7 +1249,8 @@ export default function App(){
   function weekGoalProgress(a){if(a.goalType!=="days")return null;const done=last7.filter(k=>log[k]?.[a.id]?.done).length;return{done,goal:a.goalVal,pct:Math.min(100,Math.round(done/a.goalVal*100))};}
 
   const heatmap=Array.from({length:112},(_,i)=>{const d=daysAgo(111-i),k=toKey(d);return{k,done:log[k]?Object.values(log[k]).filter(x=>x?.done).length:0,isRest:log[k]?.__rest__?.done};});
-  const bars=Array.from({length:7},(_,i)=>{const d=daysAgo(6-i),k=toKey(d);return{label:DAYS_EN[d.getDay()],done:log[k]?Object.values(log[k]).filter(x=>x?.done).length:0,k};});
+  const locale=LANG_LOCALE[lang]||"en-US";
+  const bars=Array.from({length:7},(_,i)=>{const d=daysAgo(6-i),k=toKey(d);return{label:d.toLocaleDateString(locale,{weekday:"short"}).replace(".",""),done:log[k]?Object.values(log[k]).filter(x=>x?.done).length:0,k};});
   const maxBar=Math.max(...bars.map(b=>b.done),1);
   const groups=groupByCategory(activities);
 
@@ -1322,8 +1327,8 @@ export default function App(){
       `}</style>
 
       {!onboarded&&<Onboarding onDone={()=>{setOnboarded(true);lsSet("st_onboarded",true);}} pal={pal}/>}
-      {showWeekly&&<SlideModal onClose={()=>setShowWeekly(false)} pal={pal}>{close=><WeeklyReview log={log} activities={activities} streaks={streaks} onClose={close} pal={pal} t={t}/>}</SlideModal>}
-      {dayModal&&<DayModal dateKey={dayModal} activities={activities} log={log} onClose={()=>setDayModal(null)} onToggle={toggle} onNote={setNote} onRestDay={toggleRest} pal={pal} t={t}/>}
+      {showWeekly&&<SlideModal onClose={()=>setShowWeekly(false)} pal={pal}>{close=><WeeklyReview log={log} activities={activities} streaks={streaks} onClose={close} pal={pal} t={t} lang={lang}/>}</SlideModal>}
+      {dayModal&&<DayModal dateKey={dayModal} activities={activities} log={log} onClose={()=>setDayModal(null)} onToggle={toggle} onNote={setNote} onRestDay={toggleRest} pal={pal} t={t} lang={lang}/>}
       {editAct&&<EditModal act={editAct} onSave={a=>{saveActivity(a);setEditAct(null);}} onClose={()=>setEditAct(null)} pal={pal} t={t}/>}
       {deleteAct&&<DeleteConfirm actName={deleteAct.name} onConfirm={()=>removeActivity(deleteAct.id)} onClose={()=>setDeleteAct(null)} pal={pal} t={t}/>}
       {toast&&<MilestoneToast milestone={toast.milestone} actName={toast.actName} onClose={()=>setToast(null)} pal={pal} t={t}/>}
@@ -1334,7 +1339,7 @@ export default function App(){
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,gap:8,flexWrap:"wrap"}}>
             <div>
               <h1 style={{margin:0,fontSize:"clamp(18px,5vw,22px)",fontWeight:800,color:pal.a1}}>Chainly</h1>
-              <p style={{margin:0,color:pal.sub,fontSize:"clamp(10px,2.8vw,12px)"}}>{new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</p>
+              <p style={{margin:0,color:pal.sub,fontSize:"clamp(10px,2.8vw,12px)"}}>{new Date().toLocaleDateString(LANG_LOCALE[lang]||"en-US",{weekday:"long",month:"long",day:"numeric"})}</p>
             </div>
             {/* Day progress — always visible when habits exist */}
             {todayTotal>0&&(
