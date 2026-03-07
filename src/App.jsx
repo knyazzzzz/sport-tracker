@@ -844,7 +844,78 @@ function DeleteConfirm({actName,onConfirm,onClose,pal,t}){
   );
 }
 
-// ── Settings Panel ────────────────────────────────────────────────────────────
+// ── NotifButton — handles all permission states + iOS/browser edge cases ──────
+function NotifButton({perm, onRequest, pal, t}){
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const tx = pal.text||"#fff";
+
+  // iOS Safari doesn't support Web Notifications outside an installed PWA
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent||"");
+  const isIOSSafari = isIOS && /safari/i.test(navigator.userAgent||"") && !/crios|fxios/i.test(navigator.userAgent||"");
+  const notifSupported = typeof Notification !== "undefined";
+
+  // Not supported at all (iOS Safari WebView, some Android browsers)
+  if(!notifSupported || isIOSSafari){
+    return(
+      <div style={{fontSize:12,color:pal.muted,lineHeight:1.55,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.04)",border:`1px solid ${pal.border}`}}>
+        {isIOSSafari
+          ? "На iPhone уведомления работают только в установленном приложении. Добавь Chainly на домашний экран через «Поделиться → На экран Домой»."
+          : "Ваш браузер не поддерживает уведомления."}
+      </div>
+    );
+  }
+
+  if(perm === "granted"){
+    return(
+      <div style={{display:"flex",alignItems:"center",gap:8,color:pal.a1,fontWeight:600,fontSize:13}}>
+        <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        {t.notifEnabled}
+      </div>
+    );
+  }
+
+  if(perm === "denied"){
+    return(
+      <div style={{fontSize:12,color:"#f59e0b",lineHeight:1.6,padding:"8px 12px",borderRadius:10,background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.25)"}}>
+        ⚠ Уведомления заблокированы в настройках браузера. Чтобы включить: откройте настройки браузера → Уведомления → найдите этот сайт → разрешите.
+      </div>
+    );
+  }
+
+  async function handleClick(){
+    setLoading(true);
+    setError(null);
+    try{
+      // requestPermission must be called directly from click handler — no awaits before it
+      const result = await Notification.requestPermission();
+      await onRequest(result); // pass the already-resolved permission to parent
+    } catch(e){
+      setError("Не удалось запросить разрешение. Попробуйте ещё раз.");
+    } finally{
+      setLoading(false);
+    }
+  }
+
+  return(
+    <div>
+      <button
+        onClick={handleClick}
+        disabled={loading}
+        style={{padding:"11px 20px",borderRadius:10,background:loading?"rgba(255,255,255,0.1)":pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:loading?"default":"pointer",fontSize:13,minHeight:44,opacity:loading?0.7:1,transition:"opacity 0.2s",display:"flex",alignItems:"center",gap:8}}
+      >
+        {loading
+          ? <><svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" style={{animation:"spin 1s linear infinite"}}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Запрашиваем…</>
+          : t.enableNotif
+        }
+      </button>
+      {error && <div style={{marginTop:8,fontSize:12,color:"#ef4444"}}>{error}</div>}
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+}
+
+// ── Settings Panel ─────────────────────────────────────────────────────────────
 function SettingsPanel({palKey,setPalKey,lang,setLang,notifPerm,onEnableNotif,soundEnabled,setSoundEnabled,pal,t}){
   const tx=pal.text||"#fff";
   const palNames={green:"Forest",indigo:"Indigo",rose:"Rose",amber:"Amber",light:"Light"};
@@ -906,9 +977,7 @@ function SettingsPanel({palKey,setPalKey,lang,setLang,notifPerm,onEnableNotif,so
       <div style={{background:pal.card,border:`1px solid ${pal.border}`,borderRadius:16,padding:20}}>
         <div style={{fontWeight:700,fontSize:14,color:tx,marginBottom:5}}>{t.streakReminders}</div>
         <div style={{fontSize:13,color:pal.muted,marginBottom:12}}>{t.notifDesc}</div>
-        {notifPerm==="granted"
-          ?<div style={{color:pal.a1,fontWeight:600,fontSize:13}}>✓ {t.notifEnabled}</div>
-          :<button onClick={onEnableNotif} style={{padding:"11px 18px",borderRadius:10,background:pal.a1,border:"none",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13,minHeight:44}}>{t.enableNotif}</button>}
+        <NotifButton perm={notifPerm} onRequest={onEnableNotif} pal={pal} t={t}/>
       </div>
     </div>
   );
@@ -1180,7 +1249,44 @@ export default function App(){
   const maxBar=Math.max(...bars.map(b=>b.done),1);
   const groups=groupByCategory(activities);
 
-  async function enableNotifications(){if(typeof Notification==="undefined")return;const p=await Notification.requestPermission();setNotifPerm(p);if(p==="granted"){const now=new Date(),tm=new Date();tm.setHours(20,0,0,0);if(now>tm)tm.setDate(tm.getDate()+1);setTimeout(()=>{if(!(log[today()]&&Object.values(log[today()]).some(x=>x?.done))&&overallStreak>0)new Notification("Chainly",{body:`${overallStreak}d streak at risk!`});},tm-now);}}
+  // Called by NotifButton after it already resolved the permission
+  async function enableNotifications(resolvedPerm){
+    // If called the old way (no arg), request fresh
+    let p = resolvedPerm;
+    if(!p){
+      if(typeof Notification==="undefined")return;
+      try{ p = await Notification.requestPermission(); }catch{ return; }
+    }
+    setNotifPerm(p);
+    if(p==="granted"){
+      // Store intent — actual reminder shown on next page load near 20:00
+      // (long setTimeout is killed by mobile browsers; localStorage flag survives)
+      lsSet("st_notif_enabled", true);
+      // Fire a test notification immediately so user sees it works
+      try{
+        new Notification("Chainly", {
+          body: "Уведомления включены! Мы напомним тебе в 20:00.",
+          icon: "/favicon.ico",
+        });
+      }catch{}
+    }
+  }
+
+  // Check on each load if it's near 20:00 and we should remind
+  useEffect(()=>{
+    if(!loaded)return;
+    if(typeof Notification==="undefined"||Notification.permission!=="granted")return;
+    if(!lsGet("st_notif_enabled",false))return;
+    const now=new Date();
+    const h=now.getHours(), m=now.getMinutes();
+    // Show reminder if it's between 20:00–20:05 and user hasn't completed today
+    if(h===20&&m<5){
+      const todayDone=log[today()]&&Object.values(log[today()]).some(x=>x?.done);
+      if(!todayDone&&overallStreak>0){
+        try{ new Notification("Chainly",{body:`Серия ${overallStreak}д под угрозой! Не забудь отметить привычки.`}); }catch{}
+      }
+    }
+  },[loaded]);
   function renderShare(){const c=canvasRef.current;c.width=492;drawShareCard(c,activities,log,streaks,pal,t);setShareReady(true);}
   function downloadPNG(){const a=document.createElement("a");a.download="chainly-stats.png";a.href=canvasRef.current.toDataURL("image/png");a.click();}
   function shareTwitter(){window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(t.shareText(overallStreak,totalActive,weeklyDone))}`,"_blank");}
