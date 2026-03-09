@@ -1197,7 +1197,7 @@ export default function App(){
 
   const pal=PALETTES[palKey]||PALETTES.green,tx=pal.text||"#fff",t=TRANSLATIONS[lang]||TRANSLATIONS.en,isRTL=lang==="ar";
   const catLabel=(c)=>({sport:t.catSport,mind:t.catMind,health:t.catHealth,meds:t.catMeds,other:t.catOther}[c]||c);
-  const catEmoji=(c)=>({sport:"🏃",mind:"🧠",health:"💧",other:"⭐"}[c]||"⭐");
+  const catEmoji=(c)=>({sport:"🏃",mind:"🧠",health:"💧",meds:"💊",other:"⭐"}[c]||"⭐");
   const todayKey=today(),yesterdayKey=yesterday();
 
   function getStreaks(){
