@@ -48,10 +48,11 @@ const TRANSLATIONS = {
     milestoneBang:(n)=>`${n}-Day Milestone!`, milestoneStreak:"streak", nice:"Nice!",
     weeklyReview:"Weekly Review", continue:"Continue",
     category:"Category",
-    catSport:"Sport", catMind:"Mind", catHealth:"Health", catOther:"Other",
+    catSport:"Sport", catMind:"Mind", catHealth:"Health", catMeds:"Meds & Supplements", catOther:"Other",
     catSportDesc:"Running, gym, cycling…",
     catMindDesc:"Reading, meditation…",
     catHealthDesc:"Water, sleep, nutrition…",
+    catMedsDesc:"Vitamins, meds, supplements…",
     catOtherDesc:"Any other habit",
     appearance:"Appearance", language:"Language", theme:"Theme", notifications:"Notifications",
     settingsTitle:"Settings",
@@ -118,10 +119,11 @@ const TRANSLATIONS = {
     milestoneBang:(n)=>`¡Hito de ${n} días!`, milestoneStreak:"racha", nice:"¡Genial!",
     weeklyReview:"Resumen semanal", continue:"Continuar",
     category:"Categoría",
-    catSport:"Deporte", catMind:"Mente", catHealth:"Salud", catOther:"Otro",
+    catSport:"Deporte", catMind:"Mente", catHealth:"Salud", catMeds:"Medicamentos", catOther:"Otro",
     catSportDesc:"Correr, gimnasio, ciclismo…",
     catMindDesc:"Lectura, meditación…",
     catHealthDesc:"Agua, sueño, nutrición…",
+    catMedsDesc:"Vitaminas, medicamentos, suplementos…",
     catOtherDesc:"Cualquier otro hábito",
     appearance:"Apariencia", language:"Idioma", theme:"Tema", notifications:"Notificaciones",
     settingsTitle:"Ajustes",
@@ -188,10 +190,11 @@ const TRANSLATIONS = {
     milestoneBang:(n)=>`${n}天里程碑！`, milestoneStreak:"连续", nice:"太棒了！",
     weeklyReview:"每周回顾", continue:"继续",
     category:"类别",
-    catSport:"运动", catMind:"思维", catHealth:"健康", catOther:"其他",
+    catSport:"运动", catMind:"思维", catHealth:"健康", catMeds:"药物补剂", catOther:"其他",
     catSportDesc:"跑步、健身、骑行…",
     catMindDesc:"阅读、冥想…",
     catHealthDesc:"喝水、睡眠、饮食…",
+    catMedsDesc:"维生素、药物、补充剂…",
     catOtherDesc:"任何其他习惯",
     appearance:"外观", language:"语言", theme:"主题", notifications:"通知",
     settingsTitle:"设置",
@@ -258,10 +261,11 @@ const TRANSLATIONS = {
     milestoneBang:(n)=>`إنجاز ${n} يوم!`, milestoneStreak:"سلسلة", nice:"رائع!",
     weeklyReview:"المراجعة الأسبوعية", continue:"متابعة",
     category:"الفئة",
-    catSport:"رياضة", catMind:"ذهن", catHealth:"صحة", catOther:"أخرى",
+    catSport:"رياضة", catMind:"ذهن", catHealth:"صحة", catMeds:"أدوية ومكملات", catOther:"أخرى",
     catSportDesc:"جري، رياضة، ركوب دراجة…",
     catMindDesc:"قراءة، تأمل…",
     catHealthDesc:"ماء، نوم، تغذية…",
+    catMedsDesc:"فيتامينات، أدوية، مكملات…",
     catOtherDesc:"أي عادة أخرى",
     appearance:"المظهر", language:"اللغة", theme:"السمة", notifications:"الإشعارات",
     settingsTitle:"الإعدادات",
@@ -328,10 +332,11 @@ const TRANSLATIONS = {
     milestoneBang:(n)=>`Marco de ${n} dias!`, milestoneStreak:"sequência", nice:"Incrível!",
     weeklyReview:"Revisão semanal", continue:"Continuar",
     category:"Categoria",
-    catSport:"Esporte", catMind:"Mente", catHealth:"Saúde", catOther:"Outro",
+    catSport:"Esporte", catMind:"Mente", catHealth:"Saúde", catMeds:"Medicamentos", catOther:"Outro",
     catSportDesc:"Corrida, academia, ciclismo…",
     catMindDesc:"Leitura, meditação…",
     catHealthDesc:"Água, sono, nutrição…",
+    catMedsDesc:"Vitaminas, medicamentos, suplementos…",
     catOtherDesc:"Qualquer outro hábito",
     appearance:"Aparência", language:"Idioma", theme:"Tema", notifications:"Notificações",
     settingsTitle:"Configurações",
@@ -398,10 +403,11 @@ const TRANSLATIONS = {
     milestoneBang:(n)=>`${n} дней подряд!`, milestoneStreak:"серия", nice:"Отлично!",
     weeklyReview:"Итоги недели", continue:"Продолжить",
     category:"Категория",
-    catSport:"Спорт", catMind:"Разум", catHealth:"Здоровье", catOther:"Другое",
+    catSport:"Спорт", catMind:"Разум", catHealth:"Здоровье", catMeds:"Лекарства и БАД", catOther:"Другое",
     catSportDesc:"Бег, зал, велосипед…",
     catMindDesc:"Чтение, медитация…",
     catHealthDesc:"Вода, сон, питание…",
+    catMedsDesc:"Витамины, лекарства, добавки…",
     catOtherDesc:"Любая другая привычка",
     appearance:"Внешний вид", language:"Язык", theme:"Тема", notifications:"Уведомления",
     settingsTitle:"Настройки",
@@ -424,8 +430,8 @@ const TRANSLATIONS = {
   },
 };
 
-const CATEGORIES = ["sport","mind","health","other"];
-const CAT_ICONS = { sport:"🏃", mind:"🧠", health:"💧", other:"⭐" };
+const CATEGORIES = ["sport","mind","health","meds","other"];
+const CAT_ICONS = { sport:"🏃", mind:"🧠", health:"💧", meds:"💊", other:"⭐" };
 
 const PALETTES = {
   green:  {name:"Forest", a1:"#10b981",a2:"#34d399",bg0:"#0a1a12",bg1:"#0d1f17",bg2:"#0f2a1e",card:"rgba(255,255,255,0.04)",border:"rgba(16,185,129,0.15)",muted:"#3a5a48",sub:"#668a76"},
@@ -698,7 +704,7 @@ function DayModal({dateKey,activities,log,onClose,onToggle,onNote,onRestDay,pal,
               <div key={cat} style={{marginBottom:6}}>
                 <div style={{fontSize:11,fontWeight:700,color:pal.muted,textTransform:"uppercase",letterSpacing:"0.06em",margin:"12px 0 6px",display:"flex",alignItems:"center",gap:5,paddingBottom:5,borderBottom:`1px solid ${pal.border}`}}>
                   <span>{CAT_ICONS[cat]}</span>
-                  <span>{{sport:t.catSport,mind:t.catMind,health:t.catHealth,other:t.catOther}[cat]}</span>
+                  <span>{{sport:t.catSport,mind:t.catMind,health:t.catHealth,meds:t.catMeds,other:t.catOther}[cat]}</span>
                 </div>
                 {catActs.map(a=>{
                   const e=entry[a.id]||{};
@@ -731,8 +737,8 @@ function EditModal({act,onSave,onClose,pal,t}){
   const [goalType,setGoalType]=useState(act.goalType||"none");
   const [goalVal,setGoalVal]=useState(act.goalVal||3);
   const tx=pal.text||"#fff";
-  const catLabels={sport:t.catSport,mind:t.catMind,health:t.catHealth,other:t.catOther};
-  const catEmojis={sport:"🏃",mind:"🧠",health:"💧",other:"⭐"};
+  const catLabels={sport:t.catSport,mind:t.catMind,health:t.catHealth,meds:t.catMeds,other:t.catOther};
+  const catEmojis={sport:"🏃",mind:"🧠",health:"💧",meds:"💊",other:"⭐"};
   return(
     <SlideModal onClose={onClose} pal={pal}>
       {close=>(
@@ -1190,7 +1196,7 @@ export default function App(){
   useEffect(()=>{if(loaded){lsSet("st_activities",activities);lsSet("st_log",log);lsSet("st_palette",palKey);lsSet("st_freezes",freezesUsed);lsSet("st_lang",lang);lsSet("st_sound",soundEnabled);}},[activities,log,palKey,freezesUsed,lang,soundEnabled,loaded]);
 
   const pal=PALETTES[palKey]||PALETTES.green,tx=pal.text||"#fff",t=TRANSLATIONS[lang]||TRANSLATIONS.en,isRTL=lang==="ar";
-  const catLabel=(c)=>({sport:t.catSport,mind:t.catMind,health:t.catHealth,other:t.catOther}[c]||c);
+  const catLabel=(c)=>({sport:t.catSport,mind:t.catMind,health:t.catHealth,meds:t.catMeds,other:t.catOther}[c]||c);
   const catEmoji=(c)=>({sport:"🏃",mind:"🧠",health:"💧",other:"⭐"}[c]||"⭐");
   const todayKey=today(),yesterdayKey=yesterday();
 
@@ -1381,15 +1387,15 @@ export default function App(){
           </div>
 
           {/* Rest + Freeze */}
-          {hasSportToday&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-            <button onClick={()=>toggleRest(todayKey)} style={{minHeight:48,padding:"10px 8px",borderRadius:12,background:isRestToday?pal.a1+"33":"rgba(255,255,255,0.03)",border:`1px solid ${isRestToday?pal.a1:pal.border}`,color:isRestToday?pal.a1:pal.sub,fontWeight:700,cursor:"pointer",fontSize:"clamp(11px,2.8vw,13px)"}}>
+          <div style={{display:"grid",gridTemplateColumns:hasSportToday?"1fr 1fr":"1fr",gap:8,marginBottom:10}}>
+            {hasSportToday&&<button onClick={()=>toggleRest(todayKey)} style={{minHeight:48,padding:"10px 8px",borderRadius:12,background:isRestToday?pal.a1+"33":"rgba(255,255,255,0.03)",border:`1px solid ${isRestToday?pal.a1:pal.border}`,color:isRestToday?pal.a1:pal.sub,fontWeight:700,cursor:"pointer",fontSize:"clamp(11px,2.8vw,13px)"}}>
               {isRestToday?t.restDayDone:t.restDay}
-            </button>
-            <button onClick={()=>{if(freezeAvailable){toggleRest(todayKey);setFreezesUsed(p=>({...p,[thisMonth]:true}));}}} style={{minHeight:48,padding:"8px 10px",borderRadius:12,background:"rgba(255,255,255,0.02)",border:`1px solid ${freezeAvailable?pal.border:"rgba(255,255,255,0.04)"}`,color:freezeAvailable?pal.sub:pal.muted,fontWeight:700,cursor:freezeAvailable?"pointer":"default",fontSize:"clamp(10px,2.5vw,12px)",lineHeight:1.4,textAlign:"center"}}>
+            </button>}
+            <button onClick={()=>{if(freezeAvailable){setFreezesUsed(p=>({...p,[thisMonth]:true}));}}} style={{minHeight:48,padding:"8px 10px",borderRadius:12,background:"rgba(255,255,255,0.02)",border:`1px solid ${freezeAvailable?pal.border:"rgba(255,255,255,0.04)"}`,color:freezeAvailable?pal.sub:pal.muted,fontWeight:700,cursor:freezeAvailable?"pointer":"default",fontSize:"clamp(10px,2.5vw,12px)",lineHeight:1.4,textAlign:"center"}}>
               <div>{freezeAvailable?t.streakFreeze:t.freezeUsed}</div>
               <div style={{fontWeight:400,marginTop:2,color:pal.muted,fontSize:10}}>{freezeAvailable?t.freezeOnceMonth:t.freezeRefillIn(daysUntilFreeze)}</div>
             </button>
-          </div>}
+          </div>
 
           {!(log[yesterdayKey]&&Object.values(log[yesterdayKey]).some(x=>x?.done))&&(
             <div onClick={()=>setDayModal(yesterdayKey)} style={{...cardStyle,padding:"11px 13px",marginBottom:10,cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderColor:"#f59e0b55",minHeight:52}}>
